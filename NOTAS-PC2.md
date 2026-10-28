@@ -36,6 +36,10 @@ Arreglos que salieron de la prueba:
   debajo de la entrada. Ahora el menú solo anima la entrada con CSS.
 - En el celular, deslizar la tira de días también cambiaba el día de la agenda.
 
+## Integración
+- **28/10/2026: `panel` se mergeó a `main` antes que `jugador`** (decisión de PC 2; CLAUDE.md dice marca → jugador → panel).
+  No toca archivos de PC 1. **PC 1: antes de integrar, traé `main` a tu rama** (`git fetch` + `git merge origin/main` en `jugador`).
+
 ## Pendiente para la integración
 - **Login:** reemplazar la sección "Entrada (PROVISORIA)" de `panel.html` por
   `<div data-include="../componentes/login-telefono.html" data-ambito="panel"></div>` y borrar
