@@ -42,7 +42,6 @@ function panel() {
     resaltadaHoy: false,
     aviso: null,
     form: null,
-    error: '',
     logoOk: false,
     toque: null,
     _timerAviso: null,
@@ -67,6 +66,13 @@ function panel() {
       // En Django: esto se reemplaza por polling o websockets contra el servidor.
       Store.alCambiar((cambio) => this.alCambiarDatos(cambio));
 
+      // El componente login-telefono avisa cuando el dueño terminó de entrar.
+      window.addEventListener('sesion-iniciada', (e) => {
+        if (e.detail.ambito !== 'panel') return;
+        this.usuario = Store.usuarioActual('panel');
+        this.recargar();
+      });
+
       // El navegador solo deja sonar audio después de que el usuario tocó la página.
       window.addEventListener('pointerdown', () => this.prepararSonido(), { once: true });
       document.addEventListener('visibilitychange', () => {
@@ -87,24 +93,13 @@ function panel() {
 
     // --- Sesión ---
 
-    // PROVISORIO: hasta que esté componentes/login-telefono.html (PC 1).
-    // En la integración se reemplaza por el componente con data-ambito="panel".
-    entrarComoDuenio() {
-      const duenio = datosDuenio(this.complejo);
-      if (!duenio.telefono || !Store.esDuenio(duenio.telefono)) {
-        this.error = 'No encontré el teléfono del dueño en datos.js.';
-        return;
-      }
-      this.error = '';
-      this.usuario = Store.login(duenio.telefono, duenio.nombre, 'panel');
-      this.recargar();
-    },
-
     salir() {
       Store.logout('panel');
       this.usuario = null;
       this.cerrarModales();
       this.iconos();
+      // Vuelve a mostrar el ingreso con teléfono
+      window.dispatchEvent(new CustomEvent('pedir-login', { detail: { ambito: 'panel' } }));
     },
 
     cerrarModales() {
@@ -652,11 +647,6 @@ function estadoSena(r) {
     return { icono: 'clock', corto: 'En cancha', largo: 'Paga en la cancha', clase: 'bg-marca-oscuro/10 text-marca-oscuro/75' };
   }
   return { icono: 'clock', corto: 'Pendiente', largo: 'Seña pendiente', clase: 'bg-alerta text-white' };
-}
-
-// PROVISORIO: el teléfono del dueño de datos.js, hasta que esté el login de PC 1.
-function datosDuenio(complejo) {
-  return { telefono: complejo.telefonoDuenio || '', nombre: 'Dueño de ' + (complejo.nombre || 'GOLES') };
 }
 
 // Suma días a una fecha 'AAAA-MM-DD' sin problemas de zona horaria.

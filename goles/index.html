@@ -1,8 +1,8 @@
 <!doctype html>
-<html lang="es-AR">
+<html lang="es-AR" class="scroll-smooth">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>GOLES · Reservá tu cancha (provisorio)</title>
   <meta name="description" content="Reservá tu turno de fútbol 5 o fútbol 7 en GOLES desde el celular y pagá la seña con Mercado Pago.">
   <link rel="icon" type="image/svg+xml" href="../assets/img/favicon.svg">
@@ -19,17 +19,537 @@
   <script src="../assets/js/formato.js"></script>
   <script src="../assets/js/store.js"></script>
   <script src="../assets/js/include.js"></script>
-  <script src="../assets/js/plano.js"></script><!-- llega con la rama marca -->
+  <script src="../assets/js/plano.js"></script>
+  <script src="../assets/js/login-telefono.js"></script>
   <script src="../assets/js/jugador.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
-</head>
-<body x-data="jugador()" class="min-h-screen bg-marca-oscuro font-texto text-marca-claro antialiased">
 
-  <main class="mx-auto flex min-h-screen max-w-md flex-col items-center justify-center gap-3 px-4 text-center">
-    <p class="font-titulo text-5xl font-extrabold uppercase tracking-tight">GOLES</p>
-    <h1 class="text-lg text-marca-claro/75">App del jugador · esqueleto provisorio</h1>
-    <p x-cloak class="text-sm text-marca-claro/60" x-text="'Hoy es ' + Fmt.diaLargo(Store.hoy())"></p>
+  <!-- Tilde animado de la confirmación -->
+  <style>
+    @keyframes tilde-trazo { to { stroke-dashoffset: 0; } }
+    @keyframes tilde-aparece {
+      0% { transform: scale(0.4); opacity: 0; }
+      60% { transform: scale(1.08); opacity: 1; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+  </style>
+</head>
+<body x-data="jugador()" class="min-h-screen bg-marca-oscuro font-texto text-marca-claro antialiased"
+      x-effect="document.body.classList.toggle('overflow-hidden', paso !== null)"
+      @keydown.escape.window="paso && paso !== 'confirmada' && cerrarPaso()">
+
+  <!-- Barra de navegador dibujada (decorativa): muestra el subdominio del complejo -->
+  <div aria-hidden="true" class="mx-auto max-w-md px-3 pt-3">
+    <div class="flex items-center gap-3 rounded-2xl bg-marca-claro/[0.07] px-3 py-2 ring-1 ring-marca-claro/10">
+      <div class="flex shrink-0 gap-1.5">
+        <span class="h-2.5 w-2.5 rounded-full bg-ocupado/80"></span>
+        <span class="h-2.5 w-2.5 rounded-full bg-fijo/80"></span>
+        <span class="h-2.5 w-2.5 rounded-full bg-libre/80"></span>
+      </div>
+      <div class="flex min-w-0 flex-1 items-center justify-center gap-1.5 rounded-xl bg-marca-oscuro/70 px-3 py-1.5 text-sm">
+        <i data-lucide="lock" class="h-3.5 w-3.5 shrink-0 text-libre"></i>
+        <span class="truncate text-marca-claro/90" x-text="complejo.subdominio">goles.reservando.com</span>
+      </div>
+      <i data-lucide="rotate-cw" class="h-4 w-4 shrink-0 text-marca-claro/40"></i>
+    </div>
+  </div>
+
+  <main class="mx-auto max-w-md px-4 pb-40">
+
+    <!-- Encabezado del complejo. En Django: los datos vienen del modelo Complejo -->
+    <header class="relative mt-4 overflow-hidden rounded-3xl bg-gradient-to-br from-club to-club-oscuro p-5 shadow-xl shadow-club/20">
+      <!-- Líneas de cancha de fondo -->
+      <div aria-hidden="true" class="pointer-events-none absolute inset-0">
+        <div class="absolute -right-14 -top-14 h-44 w-44 rounded-full border-2 border-marca-claro/15"></div>
+        <div class="absolute -right-14 top-0 h-full w-0.5 bg-marca-claro/10"></div>
+      </div>
+
+      <div class="relative flex items-center gap-3">
+        <!-- Logo de texto PROVISORIO hasta tener el de GOLES -->
+        <span class="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-marca-claro font-titulo text-3xl font-extrabold text-club-oscuro shadow-lg">G</span>
+        <div class="min-w-0 flex-1">
+          <h1 class="pr-12 font-titulo text-4xl font-extrabold uppercase leading-none tracking-tight" x-text="complejo.nombre">GOLES</h1>
+          <p class="mt-1 text-sm text-marca-claro/80">Fútbol 5 y 7 · Canchas techadas</p>
+        </div>
+      </div>
+
+      <!-- Mis reservas: con sesión muestra la inicial y cuántas reservas tiene -->
+      <button type="button" @click="abrirMisReservas()" aria-label="Mis reservas"
+              class="absolute right-3 top-3 grid h-11 w-11 place-items-center rounded-full bg-marca-oscuro/30 ring-1 ring-inset ring-marca-claro/20 transition hover:bg-marca-oscuro/45 active:scale-95">
+        <span x-show="!usuario" class="grid place-items-center"><i data-lucide="ticket" class="h-5 w-5"></i></span>
+        <span x-cloak x-show="usuario" class="font-titulo text-xl font-extrabold uppercase" x-text="primerNombre.charAt(0)"></span>
+        <span x-cloak x-show="misReservas.length"
+              class="absolute -right-1 -top-1 grid h-5 min-w-[1.25rem] place-items-center rounded-full bg-marca px-1 text-[0.7rem] font-bold text-marca-oscuro ring-2 ring-club-oscuro"
+              x-text="misReservas.length"></span>
+      </button>
+
+      <ul class="relative mt-4 flex flex-wrap gap-2 text-xs font-semibold">
+        <li class="inline-flex items-center gap-1.5 rounded-full bg-marca-oscuro/25 px-3 py-1.5">
+          <i data-lucide="clock" class="h-3.5 w-3.5"></i>
+          <span x-text="Fmt.hora(complejo.horario.desde) + ' a ' + Fmt.hora(complejo.horario.hasta)"></span>
+        </li>
+        <li class="inline-flex items-center gap-1.5 rounded-full bg-marca-oscuro/25 px-3 py-1.5">
+          <i data-lucide="sprout" class="h-3.5 w-3.5"></i>Césped sintético
+        </li>
+        <li class="inline-flex items-center gap-1.5 rounded-full bg-marca-oscuro/25 px-3 py-1.5">
+          <i data-lucide="wallet" class="h-3.5 w-3.5"></i>
+          <span x-text="'Seña ' + Fmt.pesos(complejo.senaPorHora) + ' por hora'"></span>
+        </li>
+      </ul>
+
+      <p class="relative mt-4 flex items-center gap-2 text-sm text-marca-claro/90">
+        <i data-lucide="map-pin" class="h-4 w-4 shrink-0"></i>
+        <span x-text="complejo.direccion"></span>
+      </p>
+
+      <a :href="enlaceWhatsapp" target="_blank" rel="noopener"
+         class="relative mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-libre font-semibold text-white shadow-lg shadow-marca-oscuro/20 transition hover:brightness-110 active:scale-[0.98]">
+        <i data-lucide="message-circle" class="h-5 w-5"></i>
+        Escribinos por WhatsApp
+      </a>
+    </header>
+
+    <!-- Plano del predio (lo hace PC 3) -->
+    <section class="mt-6" aria-label="Plano del predio">
+      <div data-include="../componentes/plano.html"></div>
+    </section>
+
+    <!-- Tira de días -->
+    <section class="mt-8" aria-labelledby="dias-titulo">
+      <h2 id="dias-titulo" class="font-titulo text-2xl font-extrabold uppercase tracking-wide">Elegí el día</h2>
+      <div class="-mx-4 mt-3 flex snap-x gap-2 overflow-x-auto px-4 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <template x-for="(dia, indice) in dias" :key="dia">
+          <button type="button" @click="elegirDia(dia)" :aria-pressed="dia === fecha"
+                  class="flex w-[4.75rem] shrink-0 snap-start flex-col items-center rounded-2xl py-3 transition duration-300 active:scale-95"
+                  :class="dia === fecha
+                    ? 'bg-marca text-marca-oscuro shadow-lg shadow-marca/20'
+                    : 'bg-marca-claro/5 ring-1 ring-inset ring-marca-claro/10 hover:bg-marca-claro/10'">
+            <span class="text-[0.7rem] font-semibold uppercase tracking-wider" x-text="nombreDia(dia, indice)"></span>
+            <span class="font-titulo text-3xl font-extrabold leading-none" x-text="numeroDia(dia)"></span>
+            <span class="mt-1 text-[0.65rem] font-medium"
+                  :class="dia === fecha ? 'text-marca-oscuro/70' : (libresPorDia[dia] ? 'text-libre' : 'text-marca-claro/40')"
+                  x-text="textoLibres(dia)"></span>
+          </button>
+        </template>
+      </div>
+    </section>
+
+    <!-- Grilla de turnos. En Django: los turnos vienen de la vista de turnos del día -->
+    <section x-ref="grilla" class="mt-6 scroll-mt-4" aria-labelledby="turnos-titulo">
+      <div class="flex items-end justify-between gap-3">
+        <div>
+          <h2 id="turnos-titulo" class="font-titulo text-2xl font-extrabold uppercase tracking-wide">Elegí tu turno</h2>
+          <p class="text-sm text-marca-claro/70 first-letter:uppercase" x-text="Fmt.diaLargo(fecha)"></p>
+        </div>
+        <button type="button" x-cloak x-show="destacada" x-transition.opacity @click="destacada = null"
+                class="inline-flex h-11 shrink-0 items-center gap-1 rounded-full bg-marca-claro/10 px-3 text-xs font-semibold transition hover:bg-marca-claro/15">
+          <i data-lucide="columns-2" class="h-4 w-4"></i>Ver las dos
+        </button>
+      </div>
+      <p class="mt-1 text-xs text-marca-claro/50">Tocá varios turnos seguidos de la misma cancha para jugar más de una hora.</p>
+
+      <ul class="mt-3 flex flex-wrap gap-x-4 gap-y-2 text-xs text-marca-claro/80">
+        <li class="flex items-center gap-2"><span class="h-3 w-3 rounded-sm bg-libre"></span>Libre</li>
+        <li class="flex items-center gap-2"><span class="h-3 w-3 rounded-sm bg-marca"></span>Elegido</li>
+        <li class="flex items-center gap-2"><span class="h-3 w-3 rounded-sm bg-marca-claro/20"></span>Reservado</li>
+        <li class="flex items-center gap-2"><span class="h-3 w-3 rounded-sm border-2 border-dashed border-fijo"></span>Fijo</li>
+      </ul>
+
+      <!-- Encabezado de columnas: queda fijo arriba mientras se baja por la grilla -->
+      <div class="sticky top-0 z-20 -mx-4 mt-3 grid grid-cols-[3.25rem_1fr_1fr] gap-2 bg-marca-oscuro/95 px-4 py-2 backdrop-blur">
+        <span></span>
+        <template x-for="cancha in canchas" :key="cancha.id">
+          <button type="button" @click="alternarDestacada(cancha.id)" :aria-pressed="destacada === cancha.id"
+                  class="rounded-2xl px-3 py-2 text-left ring-1 ring-inset transition duration-300"
+                  :class="[
+                    destacada === cancha.id ? 'bg-marca/10 ring-marca' : 'bg-marca-claro/5 ring-marca-claro/10',
+                    atenuada(cancha.id) ? 'opacity-40' : '',
+                  ]">
+            <span class="block font-titulo text-2xl font-extrabold uppercase leading-none" x-text="cancha.tipo"></span>
+            <span class="block text-xs text-marca-claro/60" x-text="Fmt.pesos(cancha.precioHora) + ' la hora'"></span>
+          </button>
+        </template>
+      </div>
+
+      <div class="mt-1 space-y-2 transition duration-200"
+           :class="cambiando ? 'translate-y-2 opacity-0' : 'translate-y-0 opacity-100'">
+        <template x-for="fila in filas" :key="fecha + '-' + fila.hora">
+          <div class="grid grid-cols-[3.25rem_1fr_1fr] items-center gap-2">
+            <p class="text-right font-titulo text-lg font-bold leading-none transition-colors"
+               :class="fila.hora === horaMirada ? 'text-marca' : 'text-marca-claro/60'"
+               x-text="Fmt.hora(fila.hora)"></p>
+
+            <template x-for="turno in fila.turnos" :key="turno.canchaId">
+              <button type="button" :id="'turno-' + turno.canchaId + '-' + turno.hora" @click="tocar(turno)"
+                      :aria-pressed="estadoCelda(turno) === 'elegido'"
+                      :aria-label="nombreCancha(turno.canchaId) + ', ' + Fmt.rango(turno.hora) + ': ' + textoCelda(turno)"
+                      class="flex h-16 flex-col justify-center rounded-2xl px-3 text-left transition duration-300 active:scale-[0.97]"
+                      :class="{
+                        'bg-libre/15 ring-1 ring-inset ring-libre/40 hover:bg-libre/25': estadoCelda(turno) === 'libre',
+                        'scale-[1.02] bg-marca text-marca-oscuro shadow-lg shadow-marca/25': estadoCelda(turno) === 'elegido',
+                        'bg-marca-claro/[0.06] text-marca-claro/35': estadoCelda(turno) === 'reservado',
+                        'border-2 border-dashed border-fijo/70 bg-fijo/10 text-fijo': estadoCelda(turno) === 'fijo',
+                        'text-marca-claro/25 ring-1 ring-inset ring-marca-claro/5': estadoCelda(turno) === 'pasado',
+                        'opacity-30 saturate-50': atenuada(turno.canchaId),
+                      }">
+                <span class="text-[0.7rem] font-semibold uppercase tracking-wider"
+                      :class="estadoCelda(turno) === 'libre' && 'text-libre'"
+                      x-text="textoCelda(turno)"></span>
+                <span x-show="estadoCelda(turno) === 'libre' || estadoCelda(turno) === 'elegido'"
+                      class="font-titulo text-xl font-bold leading-tight" x-text="Fmt.pesos(turno.precio)"></span>
+              </button>
+            </template>
+          </div>
+        </template>
+      </div>
+    </section>
+
+    <!-- Lo que viene (lo hace PC 3) -->
+    <section class="mt-10" aria-label="Próximamente">
+      <div data-include="../componentes/proximamente.html"></div>
+    </section>
+
+    <p class="mt-10 text-center text-xs text-marca-claro/40">
+      Reservas con <a href="../index.html" class="inline-flex h-11 items-center font-semibold text-marca-claro/60 underline-offset-2 hover:underline">Reservando.com</a>
+    </p>
   </main>
+
+  <!-- Barra de la selección: aparece cuando hay turnos elegidos -->
+  <div x-cloak x-show="seleccion && !paso"
+       x-transition:enter="transition duration-300 ease-out"
+       x-transition:enter-start="translate-y-full opacity-0"
+       x-transition:enter-end="translate-y-0 opacity-100"
+       x-transition:leave="transition duration-200 ease-in"
+       x-transition:leave-start="translate-y-0 opacity-100"
+       x-transition:leave-end="translate-y-full opacity-0"
+       class="fixed inset-x-0 bottom-0 z-40 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+    <div class="mx-auto flex max-w-md items-center gap-3 rounded-3xl bg-marca-claro p-3 pl-4 text-marca-oscuro shadow-2xl shadow-marca-oscuro/60">
+      <div class="min-w-0 flex-1">
+        <p class="truncate text-xs font-semibold uppercase tracking-wider text-marca-oscuro/60"
+           x-text="resumen ? resumen.cancha + ' · ' + resumen.dia + ' · ' + resumen.horas : ''"></p>
+        <p class="font-titulo text-2xl font-extrabold leading-tight" x-text="resumen ? resumen.rango : ''"></p>
+        <p class="text-xs text-marca-oscuro/70">
+          Seña <strong class="text-marca-oscuro" x-text="resumen ? resumen.sena : ''"></strong>
+          · Total <span x-text="resumen ? resumen.total : ''"></span>
+        </p>
+      </div>
+      <button type="button" @click="reservar()"
+              class="inline-flex h-12 shrink-0 items-center gap-1.5 rounded-2xl bg-marca-oscuro px-4 font-semibold text-marca transition hover:brightness-125 active:scale-95">
+        Reservar <i data-lucide="arrow-right" class="h-4 w-4"></i>
+      </button>
+    </div>
+  </div>
+
+  <!-- ============ Resumen (hoja desde abajo) ============ -->
+  <div x-cloak x-show="paso === 'resumen'" class="fixed inset-0 z-50" role="dialog" aria-modal="true" aria-labelledby="resumen-titulo">
+    <div x-show="paso === 'resumen'" x-transition.opacity.duration.300ms @click="cerrarPaso()"
+         class="absolute inset-0 bg-marca-oscuro/75 backdrop-blur-sm"></div>
+
+    <section x-show="paso === 'resumen'"
+             x-transition:enter="transition duration-300 ease-out"
+             x-transition:enter-start="translate-y-full"
+             x-transition:enter-end="translate-y-0"
+             x-transition:leave="transition duration-200 ease-in"
+             x-transition:leave-start="translate-y-0"
+             x-transition:leave-end="translate-y-full"
+             class="absolute inset-x-0 bottom-0 mx-auto max-h-[92vh] max-w-md overflow-y-auto overscroll-contain rounded-t-[2rem] bg-marca-oscuro px-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-3 ring-1 ring-marca-claro/10">
+      <div class="flex items-center justify-between">
+        <span class="h-1.5 w-12 rounded-full bg-marca-claro/20" aria-hidden="true"></span>
+        <button type="button" @click="cerrarPaso()" aria-label="Cerrar"
+                class="-mr-2 grid h-11 w-11 place-items-center rounded-full text-marca-claro/60 transition hover:bg-marca-claro/10">
+          <i data-lucide="x" class="h-5 w-5"></i>
+        </button>
+      </div>
+
+      <h2 id="resumen-titulo" class="font-titulo text-3xl font-extrabold uppercase leading-none">Revisá tu reserva</h2>
+      <p class="mt-2 text-sm text-marca-claro/70">
+        A nombre de <strong class="text-marca-claro" x-text="usuario ? usuario.nombre : ''"></strong>
+      </p>
+
+      <!-- El turno -->
+      <div class="mt-4 rounded-3xl bg-marca-claro/5 p-4 ring-1 ring-inset ring-marca-claro/10">
+        <div class="flex items-center justify-between gap-3">
+          <p class="font-titulo text-2xl font-extrabold uppercase leading-none" x-text="pedido?.cancha"></p>
+          <span class="rounded-full bg-libre/15 px-2.5 py-1 text-xs font-semibold text-libre">Techada · Sintético</span>
+        </div>
+        <dl class="mt-4 space-y-3 text-sm">
+          <div class="flex items-center gap-3">
+            <i data-lucide="calendar-days" class="h-5 w-5 shrink-0 text-marca"></i>
+            <dt class="sr-only">Día</dt>
+            <dd class="font-semibold first-letter:uppercase" x-text="pedido?.dia"></dd>
+          </div>
+          <div class="flex items-center gap-3">
+            <i data-lucide="clock" class="h-5 w-5 shrink-0 text-marca"></i>
+            <dt class="sr-only">Horario</dt>
+            <dd class="font-semibold" x-text="pedido?.rango"></dd>
+          </div>
+          <div class="flex items-center gap-3">
+            <i data-lucide="timer" class="h-5 w-5 shrink-0 text-marca"></i>
+            <dt class="sr-only">Cantidad de horas</dt>
+            <dd class="font-semibold" x-text="pedido?.cantidadHoras"></dd>
+          </div>
+        </dl>
+      </div>
+
+      <!-- Montos. En Django: vienen calculados de la vista -->
+      <dl class="mt-3 space-y-2 rounded-3xl bg-marca-claro/5 p-4 text-sm ring-1 ring-inset ring-marca-claro/10">
+        <div class="flex items-baseline justify-between gap-3">
+          <dt class="text-marca-claro/70">Total del turno</dt>
+          <dd class="font-semibold" x-text="pedido?.total"></dd>
+        </div>
+        <div class="flex items-baseline justify-between gap-3">
+          <dt class="text-marca-claro/70">Seña ahora <span class="text-xs text-marca-claro/45" x-text="'(' + pedido?.senaPorHora + ' por hora)'"></span></dt>
+          <dd class="font-titulo text-3xl font-extrabold leading-none text-marca" x-text="pedido?.sena"></dd>
+        </div>
+        <div class="flex items-baseline justify-between gap-3 border-t border-marca-claro/10 pt-2">
+          <dt class="text-marca-claro/70">Resto, en el complejo</dt>
+          <dd class="font-semibold" x-text="pedido?.saldo"></dd>
+        </div>
+      </dl>
+
+      <div class="mt-3 flex gap-3 rounded-2xl bg-alerta/10 p-4 text-sm ring-1 ring-inset ring-alerta/30">
+        <i data-lucide="triangle-alert" class="h-5 w-5 shrink-0 text-alerta"></i>
+        <p><strong class="text-alerta">Sin cancelación gratuita.</strong> Si después no podés venir, la seña no se devuelve.</p>
+      </div>
+
+      <button type="button" @click="irAPagar()"
+              class="mt-5 flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-club font-semibold text-white shadow-lg shadow-club/25 transition hover:brightness-110 active:scale-[0.98]">
+        <i data-lucide="wallet" class="h-5 w-5"></i>
+        Pagar seña con Mercado Pago
+      </button>
+      <p class="mt-2 text-center text-xs text-marca-claro/45">La comisión de Mercado Pago la paga el complejo.</p>
+      <button type="button" @click="cerrarPaso()"
+              class="mt-1 h-11 w-full rounded-xl text-sm font-semibold text-marca-claro/60 transition hover:text-marca-claro">
+        Cambiar turno
+      </button>
+    </section>
+  </div>
+
+  <!-- ============ Mercado Pago simulado ============ -->
+  <!-- En Django: acá se redirige al checkout real de Mercado Pago -->
+  <div x-cloak x-show="paso === 'pago'"
+       x-transition:enter="transition duration-300 ease-out"
+       x-transition:enter-start="translate-x-full"
+       x-transition:enter-end="translate-x-0"
+       x-transition:leave="transition duration-200 ease-in"
+       x-transition:leave-start="translate-x-0"
+       x-transition:leave-end="translate-x-full"
+       class="fixed inset-0 z-50 flex flex-col overflow-y-auto bg-marca-claro text-marca-oscuro"
+       role="dialog" aria-modal="true" aria-labelledby="pago-titulo">
+    <p class="sticky top-0 z-10 flex items-center justify-center gap-2 bg-fijo px-4 py-3 text-center text-sm font-extrabold uppercase tracking-wide text-marca-oscuro">
+      <i data-lucide="flask-conical" class="h-4 w-4 shrink-0"></i>
+      Simulación — no se cobra nada
+    </p>
+
+    <header class="bg-club text-white">
+      <div class="mx-auto flex max-w-md items-center gap-2 px-2 py-3">
+        <button type="button" @click="cerrarPaso()" :disabled="pagando" aria-label="Volver al resumen"
+                class="grid h-11 w-11 shrink-0 place-items-center rounded-full transition hover:bg-marca-claro/10 disabled:opacity-40">
+          <i data-lucide="arrow-left" class="h-5 w-5"></i>
+        </button>
+        <div>
+          <p id="pago-titulo" class="text-lg font-bold leading-tight">Mercado Pago</p>
+          <p class="text-xs text-marca-claro/80">Checkout simulado de la demo</p>
+        </div>
+      </div>
+    </header>
+
+    <div class="mx-auto w-full max-w-md flex-1 px-4 py-6">
+      <section class="rounded-3xl bg-marca-oscuro/[0.04] p-5 ring-1 ring-inset ring-marca-oscuro/10">
+        <div class="flex items-center gap-3">
+          <span class="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-club font-titulo text-xl font-extrabold text-white">G</span>
+          <div class="min-w-0">
+            <p class="text-xs text-marca-oscuro/55">Pagás a</p>
+            <p class="font-semibold" x-text="complejo.nombre"></p>
+          </div>
+        </div>
+        <p class="mt-4 text-sm text-marca-oscuro/70">
+          Seña · <span x-text="pedido?.cancha"></span> · <span x-text="pedido ? Fmt.dia(pedido.fecha) : ''"></span> · <span x-text="pedido?.rango"></span>
+        </p>
+        <p class="mt-1 text-xs font-semibold uppercase tracking-wider text-marca-oscuro/50">Total a pagar</p>
+        <p class="font-titulo text-6xl font-extrabold leading-none" x-text="pedido?.sena"></p>
+      </section>
+
+      <p class="mt-6 text-xs font-semibold uppercase tracking-wider text-marca-oscuro/50">Medio de pago</p>
+      <div class="mt-2 flex items-center gap-3 rounded-2xl bg-marca-oscuro/[0.04] p-4 ring-2 ring-inset ring-club">
+        <span class="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-club/10 text-club">
+          <i data-lucide="wallet" class="h-5 w-5"></i>
+        </span>
+        <div class="min-w-0 flex-1">
+          <p class="font-semibold">Dinero disponible</p>
+          <p class="text-xs text-marca-oscuro/55">Saldo de prueba</p>
+        </div>
+        <span class="grid h-6 w-6 place-items-center rounded-full bg-club text-white">
+          <i data-lucide="check" class="h-4 w-4"></i>
+        </span>
+      </div>
+
+      <button type="button" @click="pagar()" :disabled="pagando"
+              class="mt-6 flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-club font-semibold text-white shadow-lg shadow-club/25 transition hover:brightness-110 active:scale-[0.98] disabled:cursor-wait disabled:active:scale-100">
+        <span x-show="!pagando">Pagar <span x-text="pedido?.sena"></span></span>
+        <span x-show="pagando" class="flex items-center gap-2">
+          <span class="h-5 w-5 animate-spin rounded-full border-2 border-marca-claro/40 border-t-marca-claro" aria-hidden="true"></span>
+          Procesando el pago…
+        </span>
+      </button>
+      <p class="mt-3 text-center text-xs text-marca-oscuro/50">Es una demo: no se cobra nada. En la versión real, acá se abre Mercado Pago.</p>
+    </div>
+  </div>
+
+  <!-- ============ Confirmación ============ -->
+  <div x-cloak x-show="paso === 'confirmada'" x-transition.opacity.duration.300ms
+       class="fixed inset-0 z-50 overflow-y-auto bg-marca-oscuro" role="dialog" aria-modal="true" aria-labelledby="confirmada-titulo">
+    <div aria-hidden="true" class="pointer-events-none absolute left-1/2 top-0 h-80 w-80 -translate-x-1/2 rounded-full bg-libre/20 blur-3xl"></div>
+
+    <div class="relative mx-auto flex min-h-full max-w-md flex-col px-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-14 text-center">
+      <!-- Tilde: el círculo y la marca se dibujan solos -->
+      <div class="mx-auto h-28 w-28 animate-[tilde-aparece_0.5s_ease-out_both]" aria-hidden="true">
+        <svg viewBox="0 0 52 52" class="h-full w-full">
+          <circle cx="26" cy="26" r="24" class="fill-libre/15"/>
+          <circle cx="26" cy="26" r="24" fill="none" stroke-width="2.5" stroke-linecap="round"
+                  class="stroke-libre [stroke-dasharray:151] [stroke-dashoffset:151] animate-[tilde-trazo_0.6s_ease-out_0.2s_forwards]"/>
+          <path d="M15.5 27 l7 7 l14 -15" fill="none" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"
+                class="stroke-libre [stroke-dasharray:32] [stroke-dashoffset:32] animate-[tilde-trazo_0.35s_ease-out_0.7s_forwards]"/>
+        </svg>
+      </div>
+
+      <h2 id="confirmada-titulo" class="mt-6 font-titulo text-5xl font-extrabold uppercase leading-none">¡Turno reservado!</h2>
+      <p class="mt-2 text-marca-claro/70" x-text="'Te esperamos, ' + primerNombre + '. Ya le avisamos al complejo.'"></p>
+
+      <dl class="mt-6 divide-y divide-marca-claro/10 rounded-3xl bg-marca-claro/5 px-4 text-left text-sm ring-1 ring-inset ring-marca-claro/10">
+        <div class="flex justify-between gap-3 py-3">
+          <dt class="text-marca-claro/60">Cancha</dt>
+          <dd class="font-semibold" x-text="pedido?.cancha"></dd>
+        </div>
+        <div class="flex justify-between gap-3 py-3">
+          <dt class="text-marca-claro/60">Día</dt>
+          <dd class="text-right font-semibold first-letter:uppercase" x-text="pedido?.dia"></dd>
+        </div>
+        <div class="flex justify-between gap-3 py-3">
+          <dt class="text-marca-claro/60">Horario</dt>
+          <dd class="font-semibold" x-text="pedido?.rango"></dd>
+        </div>
+        <div class="flex justify-between gap-3 py-3">
+          <dt class="text-marca-claro/60">Seña pagada</dt>
+          <dd class="font-semibold text-libre" x-text="pedido ? pedido.sena + ' · Mercado Pago' : ''"></dd>
+        </div>
+        <div class="flex justify-between gap-3 py-3">
+          <dt class="text-marca-claro/60">A pagar en el complejo</dt>
+          <dd class="font-semibold" x-text="pedido?.saldo"></dd>
+        </div>
+        <div class="flex justify-between gap-3 py-3">
+          <dt class="text-marca-claro/60">Dirección</dt>
+          <dd class="text-right font-semibold" x-text="complejo.direccion"></dd>
+        </div>
+      </dl>
+
+      <div class="mt-6 grid gap-3">
+        <button type="button" @click="descargarCalendario(reserva)"
+                class="flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-marca font-semibold text-marca-oscuro transition hover:brightness-105 active:scale-[0.98]">
+          <i data-lucide="calendar-plus" class="h-5 w-5"></i>
+          Agregar al calendario
+        </button>
+        <a :href="enlaceCompartir" target="_blank" rel="noopener"
+           class="flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-libre font-semibold text-white transition hover:brightness-110 active:scale-[0.98]">
+          <i data-lucide="message-circle" class="h-5 w-5"></i>
+          Compartir por WhatsApp
+        </a>
+        <button type="button" @click="volverATurnos()"
+                class="h-12 w-full rounded-xl text-sm font-semibold text-marca-claro/60 transition hover:text-marca-claro">
+          Volver a los turnos
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ Mis reservas (hoja desde abajo) ============ -->
+  <div x-cloak x-show="paso === 'mis-reservas'" class="fixed inset-0 z-50" role="dialog" aria-modal="true" aria-labelledby="mis-reservas-titulo">
+    <div x-show="paso === 'mis-reservas'" x-transition.opacity.duration.300ms @click="cerrarPaso()"
+         class="absolute inset-0 bg-marca-oscuro/75 backdrop-blur-sm"></div>
+
+    <section x-show="paso === 'mis-reservas'"
+             x-transition:enter="transition duration-300 ease-out"
+             x-transition:enter-start="translate-y-full"
+             x-transition:enter-end="translate-y-0"
+             x-transition:leave="transition duration-200 ease-in"
+             x-transition:leave-start="translate-y-0"
+             x-transition:leave-end="translate-y-full"
+             class="absolute inset-x-0 bottom-0 mx-auto max-h-[92vh] max-w-md overflow-y-auto overscroll-contain rounded-t-[2rem] bg-marca-oscuro px-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-3 ring-1 ring-marca-claro/10">
+      <div class="flex items-center justify-between">
+        <span class="h-1.5 w-12 rounded-full bg-marca-claro/20" aria-hidden="true"></span>
+        <button type="button" @click="cerrarPaso()" aria-label="Cerrar"
+                class="-mr-2 grid h-11 w-11 place-items-center rounded-full text-marca-claro/60 transition hover:bg-marca-claro/10">
+          <i data-lucide="x" class="h-5 w-5"></i>
+        </button>
+      </div>
+
+      <div class="flex items-end justify-between gap-3">
+        <div class="min-w-0">
+          <h2 id="mis-reservas-titulo" class="font-titulo text-3xl font-extrabold uppercase leading-none">Mis reservas</h2>
+          <p class="mt-1 truncate text-sm text-marca-claro/60"
+             x-text="usuario ? primerNombre + ' · ' + Fmt.telefono(usuario.telefono) : ''"></p>
+        </div>
+        <button type="button" @click="salir()"
+                class="inline-flex h-11 shrink-0 items-center gap-1.5 rounded-full px-3 text-xs font-semibold text-marca-claro/60 ring-1 ring-inset ring-marca-claro/15 transition hover:bg-marca-claro/10 hover:text-marca-claro">
+          <i data-lucide="log-out" class="h-4 w-4"></i>Cerrar sesión
+        </button>
+      </div>
+
+      <!-- Lista. En Django: {% for reserva in reservas %} -->
+      <ul x-show="misReservas.length" class="mt-5 space-y-3">
+        <template x-for="item in misReservas" :key="item.reserva.id">
+          <li class="flex items-center gap-3 rounded-3xl bg-marca-claro/5 p-3 ring-1 ring-inset ring-marca-claro/10">
+            <div class="flex h-16 w-16 shrink-0 flex-col items-center justify-center rounded-2xl bg-marca text-marca-oscuro">
+              <span class="text-[0.65rem] font-bold uppercase tracking-wider" x-text="item.etiquetaDia"></span>
+              <span class="font-titulo text-3xl font-extrabold leading-none" x-text="item.numeroDia"></span>
+            </div>
+            <div class="min-w-0 flex-1">
+              <p class="font-titulo text-xl font-extrabold uppercase leading-tight" x-text="item.cancha"></p>
+              <p class="text-sm font-semibold" x-text="item.rango"></p>
+              <p class="truncate text-xs" :class="item.reserva.senaPagada ? 'text-libre' : 'text-fijo'" x-text="item.sena"></p>
+            </div>
+            <button type="button" @click="descargarCalendario(item.reserva)"
+                    :aria-label="'Agregar al calendario el turno del ' + item.dia"
+                    class="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-marca-claro/10 text-marca-claro/80 transition hover:bg-marca-claro/15 active:scale-95">
+              <!-- Ícono dibujado acá: Lucide no llega a los elementos que crea x-for -->
+              <svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M8 2v4M16 2v4M21 13V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h8M3 10h18M16 19h6M19 16v6"/>
+              </svg>
+            </button>
+          </li>
+        </template>
+      </ul>
+
+      <!-- Sin reservas -->
+      <div x-show="!misReservas.length" class="mt-6 flex flex-col items-center rounded-3xl bg-marca-claro/5 px-5 py-8 text-center ring-1 ring-inset ring-marca-claro/10">
+        <span class="grid h-14 w-14 place-items-center rounded-2xl bg-marca/15 text-marca">
+          <i data-lucide="calendar-x" class="h-7 w-7"></i>
+        </span>
+        <p class="mt-4 font-titulo text-2xl font-extrabold uppercase">Todavía no tenés turnos</p>
+        <p class="mt-1 text-sm text-marca-claro/60">Elegí un día y un horario, y armá el partido.</p>
+        <button type="button" @click="volverATurnos()"
+                class="mt-5 flex h-12 items-center gap-2 rounded-2xl bg-marca px-5 font-semibold text-marca-oscuro transition hover:brightness-105 active:scale-[0.98]">
+          Elegir turno <i data-lucide="arrow-right" class="h-4 w-4"></i>
+        </button>
+      </div>
+
+      <p class="mt-5 text-center text-xs text-marca-claro/45">Sin cancelación gratuita. Para cualquier cambio:</p>
+      <a :href="enlaceWhatsapp" target="_blank" rel="noopener"
+         class="mx-auto mt-1 flex h-11 w-fit items-center gap-2 rounded-full px-4 text-sm font-semibold text-libre transition hover:bg-libre/10">
+        <i data-lucide="message-circle" class="h-4 w-4"></i>Escribile al complejo
+      </a>
+    </section>
+  </div>
+
+  <!-- Ingreso con teléfono (componente compartido con el panel) -->
+  <div data-include="../componentes/login-telefono.html" data-ambito="jugador"></div>
+
+  <!-- Avisos cortos -->
+  <div class="pointer-events-none fixed inset-x-0 top-4 z-50 flex justify-center px-4" aria-live="polite">
+    <p x-cloak x-show="mensaje" x-transition.opacity.duration.200ms
+       class="max-w-sm rounded-2xl bg-marca-oscuro px-4 py-3 text-sm font-medium shadow-2xl ring-1 ring-marca-claro/15"
+       x-text="mensaje"></p>
+  </div>
 
 </body>
 </html>
