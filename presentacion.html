@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="es-AR" style="--escala: 0.7">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Reservando.com · Demo de GOLES en vivo</title>
+  <meta name="description" content="La app del jugador y el panel del dueño de GOLES, lado a lado: lo que se reserva en un celular aparece en vivo en el otro.">
+  <link rel="icon" type="image/svg+xml" href="assets/img/favicon.svg">
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="assets/js/config.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="assets/css/estilos.css">
+  <script src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js"></script>
+</head>
+<body class="min-h-screen bg-marca-oscuro font-texto text-marca-claro antialiased">
+
+  <!-- Las dos pantallas comparten el navegador (mismo localStorage), así que Store.alCambiar
+       lleva cada reserva del celular del jugador al panel sin recargar nada -->
+
+  <header class="flex items-center justify-center gap-3 px-4 pt-5">
+    <img src="assets/img/reservando-icono.svg" alt="" class="h-10 w-10">
+    <span class="font-titulo text-3xl font-extrabold tracking-tight">Reservando<span class="text-marca">.com</span></span>
+  </header>
+
+  <main class="mx-auto flex max-w-6xl flex-col items-center justify-center gap-6 px-4 py-5 md:flex-row md:items-start md:gap-10">
+
+    <!-- Celular del jugador -->
+    <section class="flex flex-col items-center gap-3" aria-labelledby="titulo-jugador">
+      <h2 id="titulo-jugador" class="inline-flex items-center gap-2 rounded-full bg-marca/10 px-4 py-1.5 font-titulo text-lg font-bold uppercase tracking-wide text-marca ring-1 ring-marca/30">
+        <i data-lucide="smartphone" class="h-4 w-4"></i> El jugador reserva
+      </h2>
+      <div class="h-[calc(868px*var(--escala))] w-[calc(414px*var(--escala))]">
+        <div class="relative h-[868px] w-[414px] origin-top-left scale-[var(--escala)] rounded-[3.5rem] bg-marca-oscuro p-3 shadow-2xl shadow-marca/10 ring-2 ring-marca-claro/20">
+          <div aria-hidden="true" class="absolute left-1/2 top-3 z-10 h-8 w-36 -translate-x-1/2 rounded-b-3xl bg-marca-oscuro"></div>
+          <iframe src="goles/index.html" title="App del jugador de GOLES" class="h-[844px] w-[390px] rounded-[2.75rem] border-0 bg-marca-claro/5"></iframe>
+        </div>
+      </div>
+    </section>
+
+    <!-- Lo que tiene que mirar el dueño mientras se reserva -->
+    <div aria-hidden="true" class="flex items-center gap-2 text-sm font-semibold text-marca-claro/70 md:mt-[calc(434px*var(--escala))] md:flex-col">
+      <span class="relative flex h-3 w-3">
+        <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-libre opacity-75"></span>
+        <span class="relative inline-flex h-3 w-3 rounded-full bg-libre"></span>
+      </span>
+      En vivo
+      <i data-lucide="arrow-right" class="hidden h-6 w-6 text-marca md:block"></i>
+      <i data-lucide="arrow-down" class="h-5 w-5 text-marca md:hidden"></i>
+    </div>
+
+    <!-- Celular del dueño -->
+    <section class="flex flex-col items-center gap-3" aria-labelledby="titulo-duenio">
+      <h2 id="titulo-duenio" class="inline-flex items-center gap-2 rounded-full bg-club/10 px-4 py-1.5 font-titulo text-lg font-bold uppercase tracking-wide text-club-claro ring-1 ring-club/30">
+        <i data-lucide="layout-dashboard" class="h-4 w-4"></i> El dueño lo ve
+      </h2>
+      <div class="h-[calc(868px*var(--escala))] w-[calc(414px*var(--escala))]">
+        <div class="relative h-[868px] w-[414px] origin-top-left scale-[var(--escala)] rounded-[3.5rem] bg-marca-oscuro p-3 shadow-2xl shadow-club/10 ring-2 ring-marca-claro/20">
+          <div aria-hidden="true" class="absolute left-1/2 top-3 z-10 h-8 w-36 -translate-x-1/2 rounded-b-3xl bg-marca-oscuro"></div>
+          <iframe src="goles/panel.html" title="Panel del dueño de GOLES" class="h-[844px] w-[390px] rounded-[2.75rem] border-0 bg-marca-claro/5"></iframe>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    // Las apps se diseñan a 390 × 844 px. Achicamos los dos celulares para que entren
+    // enteros en la pantalla de una notebook sin scroll (en un celular, uno abajo del otro).
+    function ajustarCelulares() {
+      const celular = { ancho: 414, alto: 868 }; // pantalla de 390 × 844 más el marco
+      const ladoALado = window.innerWidth >= 768;
+      const altoLibre = window.innerHeight - 175; // logo, títulos y márgenes
+      const anchoLibre = ladoALado ? (window.innerWidth - 200) / 2 : window.innerWidth - 32;
+      const escala = ladoALado
+        ? Math.min(altoLibre / celular.alto, anchoLibre / celular.ancho, 1)
+        : Math.min(anchoLibre / celular.ancho, 1);
+      document.documentElement.style.setProperty('--escala', Math.max(escala, 0.4).toFixed(3));
+    }
+    ajustarCelulares();
+    window.addEventListener('resize', ajustarCelulares);
+    document.addEventListener('DOMContentLoaded', () => lucide.createIcons());
+  </script>
+</body>
+</html>
