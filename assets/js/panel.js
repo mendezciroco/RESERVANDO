@@ -2,7 +2,6 @@
    Lógica de goles/panel.html, usada con x-data="panel()".
    Todo pasa por Store: en Django, Store se reemplaza por vistas y este archivo queda igual. */
 
-const PANEL_HORAS = [13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23];
 const PANEL_MAX_HORAS_MANUAL = 4;
 
 const PANEL_DIAS = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
@@ -21,7 +20,7 @@ function panel() {
     usuario: null,
     complejo: {},
     canchas: [],
-    horas: PANEL_HORAS,
+    horas: [],
     semana: PANEL_SEMANA,
     nombresDias: PANEL_DIAS,
     vista: 'agenda',
@@ -55,6 +54,9 @@ function panel() {
       // En Django: complejo, canchas y usuario vienen del contexto de la vista del panel.
       this.complejo = Store.complejo() || {};
       this.canchas = Store.canchas();
+      // Horas de inicio de los turnos: de 13 a 23 (el último termina a las 00)
+      const horario = this.complejo.horario || { desde: 13, hasta: 24 };
+      this.horas = Array.from({ length: horario.hasta - horario.desde }, (_, i) => horario.desde + i);
       this.logoOk = Boolean(this.complejo.logo);
       this.usuario = Store.usuarioActual('panel');
       this.hoy = Store.hoy();
@@ -158,12 +160,25 @@ function panel() {
     // En Django: estos valores vienen del modelo del complejo y se podrán editar.
 
     get horarioTexto() {
-      const ultima = PANEL_HORAS[PANEL_HORAS.length - 1];
-      return Fmt.hora(PANEL_HORAS[0]) + ' a ' + Fmt.hora((ultima + 1) % 24);
+      return Fmt.hora(this.horas[0]) + ' a ' + Fmt.hora(this.horas[this.horas.length - 1] + 1);
+    },
+
+    get duracionTexto() {
+      const horas = this.complejo.duracionTurno || 1;
+      return horas === 1 ? '1 hora' : horas + ' horas';
     },
 
     get senaPorHora() {
-      return this.complejo.senaPorHora || 5000;
+      return this.complejo.senaPorHora || 0;
+    },
+
+    get comisionDelComplejo() {
+      return this.complejo.comisionMercadoPago === 'complejo';
+    },
+
+    // Alto de cada fila de la agenda, una por hora
+    get filasAgenda() {
+      return 'grid-template-rows: repeat(' + this.horas.length + ', 5.75rem)';
     },
 
     // --- Datos ---
@@ -183,13 +198,13 @@ function panel() {
       // En Django: esto viene de la vista de agenda del panel.
       const turnos = Store.turnosDelDia(this.fecha, cancha.id);
       const reservas = Store.reservasDelDia(this.fecha).filter((r) => r.canchaId === cancha.id);
-      const ultima = PANEL_HORAS[PANEL_HORAS.length - 1];
+      const ultima = this.horas[this.horas.length - 1];
       const bloques = [];
 
-      for (let h = PANEL_HORAS[0]; h <= ultima; ) {
+      for (let h = this.horas[0]; h <= ultima; ) {
         const r = reservas.find((x) => x.hora === h);
         if (r) {
-          const horas = Math.max(1, Math.min(r.horas || 1, 24 - h));
+          const horas = Math.max(1, Math.min(r.horas || 1, ultima + 1 - h));
           bloques.push({
             key: [cancha.id, h, r.id, r.senaPagada, r.medioSena, r.asistencia].join('-'),
             tipo: r.origen === 'fijo' ? 'fijo' : 'reserva',
@@ -377,14 +392,14 @@ function panel() {
     guardarManual() {
       const f = this.form;
       const nombre = f.nombre.trim();
-      const telefono = limpiarTelefono(f.telefono);
+      const telefono = Store.normalizarTelefono(f.telefono);
 
       if (!nombre) {
         f.error = 'Poné el nombre de quien reserva.';
         return;
       }
-      if (telefono.length !== 10) {
-        f.error = 'El teléfono va con código de área y sin 0 ni 15: 10 números en total.';
+      if (!telefono) {
+        f.error = 'Revisá el teléfono: va con código de área, sin 0 ni 15.';
         return;
       }
 
@@ -397,13 +412,13 @@ function panel() {
         nombre,
         telefono,
         origen: 'manual',
+        medioSena: f.senaEfectivo ? 'efectivo' : null,
       });
 
       if (!resultado.ok) {
         f.error = resultado.error || 'No se pudo guardar la reserva.';
         return;
       }
-      if (f.senaEfectivo) Store.marcarSenaEfectivo(resultado.reserva.id);
 
       this.form = null;
       this.resaltar(resultado.reserva);
@@ -441,9 +456,11 @@ function panel() {
       this.detalle = null;
     },
 
+    // Tocar de nuevo la opción marcada la deshace.
     // En Django: POST a la vista de asistencia.
     marcarAsistencia(estado) {
-      Store.marcarAsistencia(this.detalle.reserva.id, estado);
+      const r = this.detalle.reserva;
+      Store.marcarAsistencia(r.id, r.asistencia === estado ? null : estado);
       this.recargar();
     },
 
@@ -495,14 +512,14 @@ function panel() {
     guardarFijo() {
       const f = this.formFijo;
       const responsable = f.responsable.trim();
-      const telefono = limpiarTelefono(f.telefono);
+      const telefono = Store.normalizarTelefono(f.telefono);
 
       if (!responsable) {
         f.error = 'Poné el nombre del responsable del turno.';
         return;
       }
-      if (telefono.length !== 10) {
-        f.error = 'El teléfono va con código de área y sin 0 ni 15: 10 números en total.';
+      if (!telefono) {
+        f.error = 'Revisá el teléfono: va con código de área, sin 0 ni 15.';
         return;
       }
 
@@ -614,8 +631,8 @@ function panel() {
 
     claseHora(h) {
       if (this.fecha === this.hoy && h === this.horaActual) return 'bg-club text-white shadow-sm';
-      if (this.esPasado(h + 1)) return 'text-zinc-300';
-      return 'text-zinc-500';
+      if (this.esPasado(h + 1)) return 'text-marca-oscuro/25';
+      return 'text-marca-oscuro/55';
     },
 
     iconos() {
@@ -632,33 +649,14 @@ function estadoSena(r) {
     return { icono: 'circle-check', corto: 'Seña MP', largo: 'Seña por Mercado Pago', clase: 'bg-libre text-white' };
   }
   if (r.origen === 'fijo') {
-    return { icono: 'clock', corto: 'En cancha', largo: 'Paga en la cancha', clase: 'bg-zinc-200 text-zinc-700' };
+    return { icono: 'clock', corto: 'En cancha', largo: 'Paga en la cancha', clase: 'bg-marca-oscuro/10 text-marca-oscuro/75' };
   }
   return { icono: 'clock', corto: 'Pendiente', largo: 'Seña pendiente', clase: 'bg-alerta text-white' };
 }
 
-// Deja el teléfono en 10 dígitos: saca espacios, guiones, +54, 9, el 0 inicial y el 15.
-// En Django: esta normalización va al formulario o modelo de la reserva.
-function limpiarTelefono(texto) {
-  let t = String(texto || '').replace(/\D/g, '');
-  if (t.startsWith('54')) t = t.slice(2);
-  if (t.startsWith('9') && t.length === 11) t = t.slice(1);
-  if (t.startsWith('0')) t = t.slice(1);
-  // El 15 va después del código de área, que tiene 2, 3 o 4 dígitos.
-  if (t.length === 12) {
-    const k = [2, 3, 4].find((n) => t.slice(n, n + 2) === '15');
-    if (k) t = t.slice(0, k) + t.slice(k + 2);
-  }
-  return t;
-}
-
-// PROVISORIO: busca el teléfono del dueño en datos.js. Ajustar al nombre real del campo en la integración.
+// PROVISORIO: el teléfono del dueño de datos.js, hasta que esté el login de PC 1.
 function datosDuenio(complejo) {
-  const d = complejo.duenio || complejo.dueno || {};
-  return {
-    telefono: d.telefono || complejo.telefonoDuenio || '',
-    nombre: d.nombre || complejo.nombreDuenio || 'Dueño',
-  };
+  return { telefono: complejo.telefonoDuenio || '', nombre: 'Dueño de ' + (complejo.nombre || 'GOLES') };
 }
 
 // Suma días a una fecha 'AAAA-MM-DD' sin problemas de zona horaria.
