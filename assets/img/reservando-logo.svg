@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 280 64" role="img" aria-label="Reservando.com">
+  <!-- Pensado para fondo oscuro. El texto usa Barlow Condensed si está instalada; antes de la versión final, pasar el texto a trazos -->
+  <rect width="64" height="64" rx="14" fill="#0E1311"/>
+  <rect x="19" y="11" width="10" height="42" rx="2" fill="#F3F5F0"/>
+  <path d="M24 14 A11 11 0 0 1 24 36" fill="none" stroke="#C6F432" stroke-width="6"/>
+  <polygon points="29,35 37.5,35 47,53 38.5,53" fill="#C6F432"/>
+  <circle cx="24" cy="25" r="3" fill="#C6F432"/>
+  <text x="76" y="45" font-family="'Barlow Condensed', 'Arial Narrow', sans-serif" font-size="36" font-weight="800" letter-spacing="-0.5" fill="#F3F5F0">Reservando<tspan fill="#C6F432" font-size="24">.com</tspan></text>
+</svg>

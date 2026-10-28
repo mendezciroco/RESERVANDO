@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- Igual que reservando-icono.svg, con trazos más gruesos para que se lea a 16 px -->
+  <rect width="64" height="64" rx="14" fill="#0E1311"/>
+  <rect x="16" y="9" width="12" height="46" rx="2" fill="#F3F5F0"/>
+  <path d="M22 13.5 A11.5 11.5 0 0 1 22 36.5" fill="none" stroke="#C6F432" stroke-width="9"/>
+  <polygon points="28,35 38,35 50,55 40,55" fill="#C6F432"/>
+</svg>

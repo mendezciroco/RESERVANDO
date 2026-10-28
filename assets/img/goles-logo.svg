@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 60" role="img" aria-label="GOLES">
+  <!-- PROVISORIO: logo de texto hasta que GOLES nos pase el suyo. Colores = token club de config.js -->
+  <polygon points="14,4 198,4 186,56 2,56" fill="#2F7BFF"/>
+  <polygon points="14,4 198,4 196.5,10.5 12.5,10.5" fill="#8DB8FF"/>
+  <text x="100" y="45" text-anchor="middle" font-family="'Barlow Condensed', 'Arial Narrow', sans-serif" font-size="40" font-style="italic" font-weight="800" letter-spacing="4" fill="#FFFFFF">GOLES</text>
+</svg>
