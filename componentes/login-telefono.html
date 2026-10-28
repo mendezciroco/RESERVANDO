@@ -1,0 +1,159 @@
+<!-- Ingreso con teléfono. Lógica en assets/js/login-telefono.js -->
+<!-- Uso: <div data-include="../componentes/login-telefono.html" data-ambito="jugador"></div> (o data-ambito="panel") -->
+<!-- Se abre con el evento 'pedir-login' { ambito } y avisa 'sesion-iniciada' { ambito, usuario } -->
+<!-- En Django: {% include "componentes/login-telefono.html" with ambito="jugador" %} -->
+<div x-data="loginTelefono()" class="font-texto text-marca-claro"
+     @pedir-login.window="abrir($event.detail)"
+     @keydown.escape.window="abierta && paso !== 'listo' && cerrar()">
+
+  <!-- Notificación simulada que imita a WhatsApp. Para la demo, tocarla completa el código -->
+  <div class="pointer-events-none fixed inset-x-0 top-0 z-[70] px-3 pt-3" aria-live="assertive">
+    <button type="button" x-cloak x-show="notificacion" @click="usarCodigoDeNotificacion()"
+            x-transition:enter="transition duration-500 ease-out"
+            x-transition:enter-start="-translate-y-[120%] opacity-0"
+            x-transition:enter-end="translate-y-0 opacity-100"
+            x-transition:leave="transition duration-300 ease-in"
+            x-transition:leave-start="translate-y-0 opacity-100"
+            x-transition:leave-end="-translate-y-[120%] opacity-0"
+            class="pointer-events-auto mx-auto flex w-full max-w-md items-start gap-3 rounded-2xl bg-marca-claro/95 p-3 text-left text-marca-oscuro shadow-2xl shadow-marca-oscuro/50 ring-1 ring-marca-oscuro/5 backdrop-blur">
+      <span class="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-libre text-white">
+        <i data-lucide="message-circle" class="h-5 w-5"></i>
+      </span>
+      <span class="min-w-0 flex-1">
+        <span class="flex items-center justify-between text-xs text-marca-oscuro/55">
+          <span class="font-semibold uppercase tracking-wide">WhatsApp</span>
+          <span>ahora</span>
+        </span>
+        <span class="mt-0.5 block text-sm">
+          <strong>Reservando:</strong> tu código es <strong class="tracking-widest" x-text="codigoEnviado"></strong>
+        </span>
+        <span class="mt-1 block text-xs text-marca-oscuro/50">Tocá para completarlo</span>
+      </span>
+    </button>
+  </div>
+
+  <!-- Hoja que sube desde abajo -->
+  <div x-cloak x-show="abierta" class="fixed inset-0 z-[60]" role="dialog" aria-modal="true" aria-labelledby="login-titulo">
+    <div x-show="abierta" x-transition.opacity.duration.300ms @click="paso !== 'listo' && cerrar()"
+         class="absolute inset-0 bg-marca-oscuro/75 backdrop-blur-sm"></div>
+
+    <section x-show="abierta"
+             x-transition:enter="transition duration-300 ease-out"
+             x-transition:enter-start="translate-y-full"
+             x-transition:enter-end="translate-y-0"
+             x-transition:leave="transition duration-200 ease-in"
+             x-transition:leave-start="translate-y-0"
+             x-transition:leave-end="translate-y-full"
+             class="absolute inset-x-0 bottom-0 mx-auto max-h-[92vh] max-w-md overflow-y-auto overscroll-contain rounded-t-[2rem] bg-marca-oscuro px-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-3 ring-1 ring-marca-claro/10">
+      <div class="flex items-center justify-between">
+        <span class="h-1.5 w-12 rounded-full bg-marca-claro/20" aria-hidden="true"></span>
+        <button type="button" x-show="paso !== 'listo'" @click="cerrar()" aria-label="Cerrar"
+                class="-mr-2 grid h-11 w-11 place-items-center rounded-full text-marca-claro/60 transition hover:bg-marca-claro/10">
+          <i data-lucide="x" class="h-5 w-5"></i>
+        </button>
+      </div>
+
+      <!-- Paso 1: celular -->
+      <form x-show="paso === 'telefono'" @submit.prevent="enviarCodigo()" novalidate>
+        <span class="grid h-12 w-12 place-items-center rounded-2xl bg-marca text-marca-oscuro">
+          <i data-lucide="smartphone" class="h-6 w-6"></i>
+        </span>
+        <h2 id="login-titulo" class="mt-4 font-titulo text-3xl font-extrabold uppercase leading-none">Entrá con tu celular</h2>
+        <p class="mt-2 text-sm text-marca-claro/70">Te mandamos un código por WhatsApp. Sin contraseñas ni mails.</p>
+
+        <label class="mt-5 flex h-14 items-center rounded-2xl bg-marca-claro/5 ring-1 ring-inset ring-marca-claro/15 transition focus-within:ring-2 focus-within:ring-marca">
+          <span class="sr-only">Tu celular</span>
+          <span class="border-r border-marca-claro/10 pl-4 pr-3 font-semibold text-marca-claro/60">+54 9</span>
+          <input x-ref="telefono" type="tel" inputmode="numeric" autocomplete="tel-national" placeholder="11 2345-6789"
+                 :value="telefonoTexto" @input="formatearTelefono($event)"
+                 class="h-full min-w-0 flex-1 bg-transparent px-3 text-lg font-semibold tracking-wide outline-none placeholder:text-marca-claro/25">
+        </label>
+        <p class="mt-2 min-h-[1.25rem] text-sm text-alerta" x-text="error"></p>
+        <p x-show="ambito === 'panel'" class="text-xs text-marca-claro/50">
+          Demo: el celular del dueño es <span class="font-semibold" x-text="Fmt.telefono(complejo.telefonoDuenio)"></span>
+        </p>
+
+        <button type="submit" :disabled="!telefonoValido"
+                class="mt-4 flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-marca font-semibold text-marca-oscuro transition hover:brightness-105 active:scale-[0.98] disabled:opacity-40 disabled:active:scale-100">
+          Recibir código <i data-lucide="arrow-right" class="h-5 w-5"></i>
+        </button>
+        <p class="mt-3 text-center text-xs text-marca-claro/40">Demo: el código llega simulado acá mismo.</p>
+      </form>
+
+      <!-- Paso 2: código -->
+      <form x-show="paso === 'codigo'" @submit.prevent="verificar()" novalidate>
+        <span class="grid h-12 w-12 place-items-center rounded-2xl bg-libre text-white">
+          <i data-lucide="message-circle" class="h-6 w-6"></i>
+        </span>
+        <h2 class="mt-4 font-titulo text-3xl font-extrabold uppercase leading-none">Poné el código</h2>
+        <p class="mt-2 text-sm text-marca-claro/70">
+          Te lo mandamos por WhatsApp al <strong class="whitespace-nowrap text-marca-claro" x-text="telefonoMostrado"></strong>.
+        </p>
+
+        <div class="mt-6 flex justify-center gap-3" :class="temblar && 'animate-[login-temblar_0.4s_ease-in-out]'">
+          <template x-for="(digito, indice) in digitos" :key="indice">
+            <input data-digito type="text" inputmode="numeric" maxlength="4" pattern="[0-9]*"
+                   :autocomplete="indice === 0 ? 'one-time-code' : 'off'"
+                   :aria-label="'Dígito ' + (indice + 1) + ' del código'"
+                   :value="digito"
+                   @input="alEscribir(indice, $event)"
+                   @keydown.backspace="alBorrar(indice, $event)"
+                   @paste.prevent="alPegar($event)"
+                   @focus="$event.target.select()"
+                   class="h-16 w-14 rounded-2xl bg-marca-claro/5 text-center font-titulo text-3xl font-extrabold outline-none ring-1 ring-inset transition focus:ring-2 focus:ring-marca"
+                   :class="error ? 'ring-alerta/70' : (digito ? 'ring-marca/60' : 'ring-marca-claro/15')">
+          </template>
+        </div>
+        <p class="mt-3 min-h-[1.25rem] text-center text-sm text-alerta" x-text="error"></p>
+
+        <div class="mt-2 flex justify-between gap-3 text-sm font-semibold">
+          <button type="button" @click="cambiarNumero()" class="h-11 rounded-xl px-2 text-marca-claro/60 transition hover:text-marca-claro">Cambiar número</button>
+          <button type="button" @click="enviarCodigo()" class="h-11 rounded-xl px-2 text-marca transition hover:brightness-110">Reenviar código</button>
+        </div>
+      </form>
+
+      <!-- Paso 3: nombre, solo la primera vez -->
+      <form x-show="paso === 'nombre'" @submit.prevent="guardarNombre()" novalidate>
+        <span class="grid h-12 w-12 place-items-center rounded-2xl bg-marca text-marca-oscuro">
+          <i data-lucide="user-round" class="h-6 w-6"></i>
+        </span>
+        <h2 class="mt-4 font-titulo text-3xl font-extrabold uppercase leading-none">¿Cómo te llamás?</h2>
+        <p class="mt-2 text-sm text-marca-claro/70">Es la primera vez que entrás. Así te reconocen en el complejo.</p>
+
+        <label class="mt-5 block">
+          <span class="sr-only">Tu nombre</span>
+          <input x-ref="nombre" type="text" autocomplete="name" placeholder="Nombre y apellido" maxlength="40"
+                 x-model="nombre" @input="error = ''"
+                 class="h-14 w-full rounded-2xl bg-marca-claro/5 px-4 text-lg font-semibold outline-none ring-1 ring-inset ring-marca-claro/15 transition placeholder:text-marca-claro/25 focus:ring-2 focus:ring-marca">
+        </label>
+        <p class="mt-2 min-h-[1.25rem] text-sm text-alerta" x-text="error"></p>
+
+        <button type="submit"
+                class="mt-2 flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-marca font-semibold text-marca-oscuro transition hover:brightness-105 active:scale-[0.98]">
+          Entrar <i data-lucide="arrow-right" class="h-5 w-5"></i>
+        </button>
+      </form>
+
+      <!-- Listo -->
+      <div x-show="paso === 'listo'" class="flex flex-col items-center py-8 text-center">
+        <span x-show="paso === 'listo'"
+              x-transition:enter="transition duration-500 ease-out"
+              x-transition:enter-start="scale-50 opacity-0"
+              x-transition:enter-end="scale-100 opacity-100"
+              class="grid h-20 w-20 place-items-center rounded-full bg-libre text-white shadow-lg shadow-libre/30">
+          <i data-lucide="check" class="h-10 w-10"></i>
+        </span>
+        <p class="mt-5 font-titulo text-3xl font-extrabold uppercase" x-text="'¡Listo, ' + primerNombre + '!'"></p>
+        <p class="mt-1 text-sm text-marca-claro/70">Ya entraste. No te lo vamos a volver a pedir.</p>
+      </div>
+    </section>
+  </div>
+
+  <style>
+    @keyframes login-temblar {
+      0%, 100% { transform: translateX(0); }
+      20%, 60% { transform: translateX(-8px); }
+      40%, 80% { transform: translateX(8px); }
+    }
+  </style>
+</div>
