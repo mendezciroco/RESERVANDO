@@ -1,10 +1,12 @@
 <!-- Ingreso con teléfono. Lógica en assets/js/login-telefono.js -->
 <!-- Uso: <div data-include="../componentes/login-telefono.html" data-ambito="jugador"></div> (o data-ambito="panel") -->
+<!-- data-modo="hoja" (por defecto): hoja desde abajo que se puede cerrar.
+     data-modo="pagina": tarjeta en la página, sin cerrar, abierta mientras no haya sesión (la usa el panel) -->
 <!-- Se abre con el evento 'pedir-login' { ambito } y avisa 'sesion-iniciada' { ambito, usuario } -->
 <!-- En Django: {% include "componentes/login-telefono.html" with ambito="jugador" %} -->
 <div x-data="loginTelefono()" class="font-texto text-marca-claro"
      @pedir-login.window="abrir($event.detail)"
-     @keydown.escape.window="abierta && paso !== 'listo' && cerrar()">
+     @keydown.escape.window="cerrable && abierta && cerrar()">
 
   <!-- Notificación simulada que imita a WhatsApp. Para la demo, tocarla completa el código -->
   <div class="pointer-events-none fixed inset-x-0 top-0 z-[70] px-3 pt-3" aria-live="assertive">
@@ -32,26 +34,32 @@
     </button>
   </div>
 
-  <!-- Hoja que sube desde abajo -->
-  <div x-cloak x-show="abierta" class="fixed inset-0 z-[60]" role="dialog" aria-modal="true" aria-labelledby="login-titulo">
-    <div x-show="abierta" x-transition.opacity.duration.300ms @click="paso !== 'listo' && cerrar()"
+  <!-- Hoja que sube desde abajo (o tarjeta en la página, con data-modo="pagina") -->
+  <div x-cloak x-show="abierta" :class="modo === 'pagina' ? 'relative w-full max-w-sm' : 'fixed inset-0 z-[60]'"
+       :role="modo === 'pagina' ? null : 'dialog'" :aria-modal="modo === 'pagina' ? null : 'true'" aria-labelledby="login-titulo">
+    <div x-show="abierta && modo !== 'pagina'" x-transition.opacity.duration.300ms @click="cerrable && cerrar()"
          class="absolute inset-0 bg-marca-oscuro/75 backdrop-blur-sm"></div>
 
     <section x-show="abierta"
+             :class="modo === 'pagina'
+               ? 'relative rounded-[2rem] bg-marca-claro/[0.06] pt-6 backdrop-blur-xl'
+               : 'absolute inset-x-0 bottom-0 mx-auto max-h-[92vh] max-w-md overflow-y-auto overscroll-contain rounded-t-[2rem] bg-marca-oscuro pt-3'"
              x-transition:enter="transition duration-300 ease-out"
              x-transition:enter-start="translate-y-full"
              x-transition:enter-end="translate-y-0"
              x-transition:leave="transition duration-200 ease-in"
              x-transition:leave-start="translate-y-0"
              x-transition:leave-end="translate-y-full"
-             class="absolute inset-x-0 bottom-0 mx-auto max-h-[92vh] max-w-md overflow-y-auto overscroll-contain rounded-t-[2rem] bg-marca-oscuro px-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-3 ring-1 ring-marca-claro/10">
-      <div class="flex items-center justify-between">
+             class="px-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] ring-1 ring-inset ring-marca-claro/10">
+      <div x-show="modo !== 'pagina'" class="flex items-center justify-between">
         <span class="h-1.5 w-12 rounded-full bg-marca-claro/20" aria-hidden="true"></span>
-        <button type="button" x-show="paso !== 'listo'" @click="cerrar()" aria-label="Cerrar"
+        <button type="button" x-show="cerrable" @click="cerrar()" aria-label="Cerrar"
                 class="-mr-2 grid h-11 w-11 place-items-center rounded-full text-marca-claro/60 transition hover:bg-marca-claro/10">
           <i data-lucide="x" class="h-5 w-5"></i>
         </button>
       </div>
+      <p x-show="ambito === 'panel'" class="mb-4 text-xs font-semibold uppercase tracking-[0.2em] text-marca-claro/50"
+         x-text="'Panel del dueño · ' + complejo.nombre"></p>
 
       <!-- Paso 1: celular -->
       <form x-show="paso === 'telefono'" @submit.prevent="enviarCodigo()" novalidate>

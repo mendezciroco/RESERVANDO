@@ -1,10 +1,12 @@
 // Lógica del ingreso con teléfono (componentes/login-telefono.html), usada con x-data="loginTelefono()".
 // El ámbito ('jugador' | 'panel') llega en el atributo data-ambito del include.
+// data-modo: 'hoja' (por defecto, se puede cerrar) o 'pagina' (tarjeta fija, abierta mientras no haya sesión).
 // Se abre con el evento 'pedir-login' { ambito } y al terminar dispara 'sesion-iniciada' { ambito, usuario }.
 // Si ya hay sesión en ese ámbito, no se abre: avisa 'sesion-iniciada' directamente.
 function loginTelefono() {
   return {
     ambito: 'jugador',
+    modo: 'hoja',
     complejo: {},
     abierta: false,
     paso: 'telefono',      // 'telefono' | 'codigo' | 'nombre' | 'listo'
@@ -21,8 +23,15 @@ function loginTelefono() {
 
     init() {
       this.ambito = this.$el.dataset.ambito || 'jugador';
+      this.modo = this.$el.dataset.modo === 'pagina' ? 'pagina' : 'hoja';
       // En Django: el complejo viene del contexto de la vista
       this.complejo = Store.complejo();
+      if (this.modo === 'pagina' && !Store.usuarioActual(this.ambito)) this.abrir();
+    },
+
+    // En modo página no se cierra; en los dos, no se cierra mientras dice "¡Listo!"
+    get cerrable() {
+      return this.modo !== 'pagina' && this.paso !== 'listo';
     },
 
     abrir(detalle = {}) {

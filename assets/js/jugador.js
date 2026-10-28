@@ -372,6 +372,7 @@ function jugador() {
 
     // Archivo .ics generado en el navegador. Argentina es UTC-3 todo el año (sin horario de verano)
     descargarCalendario(r) {
+      if (!r) return;
       const cancha = this.canchas.find((una) => una.id === r.canchaId);
       const sena = Fmt.pesos(r.sena);
       const saldo = Fmt.pesos(cancha.precioHora * r.horas - (r.senaPagada ? r.sena : 0));
