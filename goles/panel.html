@@ -1,34 +1,829 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="es-AR">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>GOLES · Panel del dueño (provisorio)</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Panel · GOLES</title>
   <meta name="description" content="Panel del dueño de GOLES: agenda de las canchas en vivo, reservas manuales y turnos fijos.">
   <link rel="icon" type="image/svg+xml" href="../assets/img/favicon.svg">
 
-  <!-- Orden de la sección 5 de CLAUDE.md -->
+  <!-- 1. Tailwind -->
   <script src="https://cdn.tailwindcss.com"></script>
+  <!-- 2. Tokens de Tailwind -->
   <script src="../assets/js/config.js"></script>
+  <!-- 3. Tipografías y estilos -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap">
   <link rel="stylesheet" href="../assets/css/estilos.css">
+  <!-- 4. Íconos -->
   <script src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js"></script>
+  <!-- 5. Datos y utilidades compartidas -->
   <script src="../assets/js/datos.js"></script>
   <script src="../assets/js/formato.js"></script>
   <script src="../assets/js/store.js"></script>
   <script src="../assets/js/include.js"></script>
+  <!-- 6. JS de la página -->
   <script src="../assets/js/panel.js"></script>
+  <!-- 7. Alpine, último -->
   <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
-</head>
-<body x-data="panel()" class="min-h-screen bg-marca-oscuro font-texto text-marca-claro antialiased">
+  <!-- Animaciones del panel. Usan los tokens de config.js vía theme(). -->
+  <style type="text/tailwindcss">
+    @keyframes destello {
+      0%   { box-shadow: 0 0 0 0 theme('colors.club.DEFAULT / 80%'); transform: scale(1); }
+      12%  { transform: scale(1.045); }
+      30%  { transform: scale(1); }
+      100% { box-shadow: 0 0 0 22px theme('colors.club.DEFAULT / 0%'); transform: scale(1); }
+    }
+    @keyframes aviso-entra {
+      0%   { opacity: 0; transform: translateY(24px) scale(.94); }
+      60%  { opacity: 1; transform: translateY(-4px) scale(1.02); }
+      100% { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    @keyframes vaciar { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+    @keyframes hoja-sube { from { transform: translateY(100%); } to { transform: translateY(0); } }
+    @keyframes menu-entra { from { opacity: 0; transform: scale(.95); } to { opacity: 1; transform: scale(1); } }
 
-  <main class="mx-auto flex min-h-screen max-w-md flex-col items-center justify-center gap-3 px-4 text-center">
-    <p class="font-titulo text-5xl font-extrabold uppercase tracking-tight">GOLES</p>
-    <h1 class="text-lg text-marca-claro/75">Panel del dueño · esqueleto provisorio</h1>
-    <p x-cloak class="text-sm text-marca-claro/60" x-text="'Hoy es ' + Fmt.diaLargo(Store.hoy())"></p>
+    @layer utilities {
+      .destello { animation: destello 1.2s ease-out 4; }
+      .aviso-entra { animation: aviso-entra .5s cubic-bezier(.2, .9, .3, 1.2) both; }
+      .vaciar { animation: vaciar 6.5s linear forwards; transform-origin: left; }
+      .hoja-sube { animation: hoja-sube .35s cubic-bezier(.2, .9, .3, 1) both; }
+      /* Animación solo de entrada: con x-transition, Alpine esperaba la salida del menú para ocultar el panel al salir */
+      .menu-entra { animation: menu-entra .15s ease-out both; transform-origin: top right; }
+    }
+  </style>
+</head>
+
+<body class="min-h-screen bg-marca-claro font-texto text-marca-oscuro antialiased">
+<div x-data="panel()" x-cloak
+     x-effect="document.body.classList.toggle('overflow-hidden', hayModal)"
+     @keydown.escape.window="cerrarModales()">
+
+  <!-- ============ Entrada (PROVISORIA) ============ -->
+  <!-- En la integración esta sección se reemplaza por:
+       <div data-include="../componentes/login-telefono.html" data-ambito="panel"></div> -->
+  <main x-show="!usuario" class="relative flex min-h-screen items-center justify-center overflow-hidden bg-marca-oscuro px-4 py-10">
+    <div aria-hidden="true" class="pointer-events-none absolute -top-32 left-1/2 h-[28rem] w-[28rem] -translate-x-1/2 rounded-full bg-club/30 blur-3xl"></div>
+    <div aria-hidden="true" class="pointer-events-none absolute -bottom-40 right-0 h-80 w-80 rounded-full bg-marca/20 blur-3xl"></div>
+
+    <section class="relative w-full max-w-sm rounded-[2rem] bg-white/[0.06] p-8 text-center ring-1 ring-inset ring-white/10 backdrop-blur-xl">
+      <div class="flex h-16 items-center justify-center">
+        <img x-show="logoOk" :src="logo" :alt="complejo.nombre" class="h-14 w-auto drop-shadow-lg" @error="logoOk = false">
+        <span x-show="!logoOk" class="grid h-16 w-16 place-items-center rounded-2xl bg-club font-titulo text-xl font-extrabold text-white" x-text="iniciales"></span>
+      </div>
+      <h1 class="mt-6 font-titulo text-4xl font-extrabold uppercase leading-none text-white">Panel del dueño</h1>
+      <p class="mt-3 text-sm text-white/60">Tus canchas, en vivo y en un solo lugar.</p>
+
+      <button type="button" @click="entrarComoDuenio()"
+              class="mt-8 flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-club font-semibold text-white transition hover:brightness-110 active:scale-[0.98]">
+        <i data-lucide="log-in" class="h-5 w-5"></i>
+        Entrar como dueño
+      </button>
+      <p x-show="error" x-text="error" class="mt-4 text-sm text-alerta"></p>
+      <p class="mt-6 text-xs text-white/40">Acceso provisorio de la demo</p>
+    </section>
   </main>
 
+  <!-- ============ Panel ============ -->
+  <div x-show="usuario">
+
+    <!-- Encabezado -->
+    <header class="sticky top-0 z-30 bg-marca-oscuro/90 text-white backdrop-blur-xl">
+      <div class="mx-auto flex h-16 max-w-7xl items-center gap-3 px-4 sm:px-6">
+        <img x-show="logoOk" :src="logo" :alt="complejo.nombre" class="h-9 w-auto shrink-0" @error="logoOk = false">
+        <template x-if="!logoOk">
+          <div class="flex items-center gap-2">
+            <span class="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-club font-titulo text-sm font-extrabold" x-text="iniciales"></span>
+            <p class="font-titulo text-xl font-extrabold uppercase" x-text="complejo.nombre"></p>
+          </div>
+        </template>
+        <span class="rounded-full bg-white/10 px-2.5 py-1 text-xs font-semibold text-white/80">Panel</span>
+
+        <span class="ml-auto inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1.5 text-xs font-medium">
+          <span class="relative flex h-2 w-2">
+            <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-libre opacity-75"></span>
+            <span class="relative inline-flex h-2 w-2 rounded-full bg-libre"></span>
+          </span>
+          En vivo
+        </span>
+        <!-- Menú -->
+        <div class="relative" @click.outside="menu = false">
+          <button type="button" @click="menu = !menu; iconos()" aria-label="Menú" :aria-expanded="menu"
+                  :class="menu ? 'bg-white text-marca-oscuro' : 'bg-white/10 hover:bg-white/20'"
+                  class="grid h-11 w-11 shrink-0 place-items-center rounded-full transition">
+            <i data-lucide="menu" class="h-5 w-5"></i>
+          </button>
+          <div x-show="menu"
+               class="menu-entra absolute right-0 top-14 w-64 overflow-hidden rounded-2xl bg-white p-1.5 text-marca-oscuro shadow-2xl shadow-marca-oscuro/30 ring-1 ring-marca-oscuro/10"
+               role="menu">
+            <button type="button" role="menuitem" @click="abrirConfig()"
+                    class="flex h-12 w-full items-center gap-3 rounded-xl px-3 text-left text-sm font-medium transition hover:bg-marca-oscuro/5">
+              <i data-lucide="settings" class="h-5 w-5 text-marca-oscuro/55"></i>
+              Configuración
+            </button>
+            <button type="button" role="menuitem" @click="irALoQueViene()"
+                    class="flex h-12 w-full items-center gap-3 rounded-xl px-3 text-left text-sm font-medium transition hover:bg-marca-oscuro/5">
+              <i data-lucide="sparkles" class="h-5 w-5 text-marca-oscuro/55"></i>
+              Lo que viene
+            </button>
+            <div class="my-1 h-px bg-marca-oscuro/5"></div>
+            <button type="button" role="menuitem" @click="pedirReinicio()"
+                    class="flex h-12 w-full items-center gap-3 rounded-xl px-3 text-left text-sm font-medium text-alerta transition hover:bg-alerta/10">
+              <i data-lucide="rotate-ccw" class="h-5 w-5"></i>
+              Reiniciar demo
+            </button>
+            <button type="button" role="menuitem" @click="menu = false; salir()"
+                    class="flex h-12 w-full items-center gap-3 rounded-xl px-3 text-left text-sm font-medium transition hover:bg-marca-oscuro/5">
+              <i data-lucide="log-out" class="h-5 w-5 text-marca-oscuro/55"></i>
+              Salir del panel
+            </button>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- Resumen de hoy -->
+    <section class="bg-marca-oscuro pb-16 text-white">
+      <div class="mx-auto max-w-7xl px-4 pt-6 sm:px-6 lg:pt-10">
+        <p class="text-sm text-white/50 first-letter:uppercase" x-text="Fmt.diaLargo(hoy)"></p>
+        <h1 class="mt-1 font-titulo text-3xl font-extrabold tracking-tight sm:text-4xl">
+          Hola, <span x-text="primerNombre"></span>
+        </h1>
+
+        <div class="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:gap-4">
+          <article class="rounded-3xl bg-white/[0.06] p-4 ring-1 ring-inset ring-white/10 sm:p-5"
+                   :class="resaltadaHoy && 'destello'">
+            <div class="flex items-center gap-2 text-xs font-medium text-white/60">
+              <span class="h-2 w-2 rounded-full bg-ocupado"></span>
+              Reservados hoy
+            </div>
+            <p class="mt-3 font-titulo text-4xl font-extrabold tabular-nums lg:text-5xl" x-text="resumen.reservados"></p>
+            <p class="mt-1 text-xs text-white/50">
+              de <span x-text="resumen.total"></span> turnos · <span x-text="resumen.ocupacion + '%'"></span>
+            </p>
+            <div class="mt-3 h-1.5 overflow-hidden rounded-full bg-white/10">
+              <div class="h-full rounded-full bg-ocupado transition-all duration-700" :style="'width:' + resumen.ocupacion + '%'"></div>
+            </div>
+          </article>
+
+          <article class="rounded-3xl bg-white/[0.06] p-4 ring-1 ring-inset ring-white/10 sm:p-5">
+            <div class="flex items-center gap-2 text-xs font-medium text-white/60">
+              <span class="h-2 w-2 rounded-full bg-libre"></span>
+              Libres hoy
+            </div>
+            <p class="mt-3 font-titulo text-4xl font-extrabold tabular-nums lg:text-5xl" x-text="resumen.libres"></p>
+            <p class="mt-1 text-xs text-white/50">
+              <span x-text="resumen.porDelante"></span> todavía por delante
+            </p>
+            <div class="mt-3 h-1.5 overflow-hidden rounded-full bg-white/10">
+              <div class="h-full rounded-full bg-libre transition-all duration-700" :style="'width:' + (100 - resumen.ocupacion) + '%'"></div>
+            </div>
+          </article>
+
+          <article class="col-span-2 rounded-3xl bg-club p-4 shadow-lg shadow-club/20 sm:col-span-1 sm:p-5">
+            <div class="flex items-center gap-2 text-xs font-medium text-white/80">
+              <i data-lucide="wallet" class="h-3.5 w-3.5"></i>
+              Señas cobradas hoy
+            </div>
+            <p class="mt-3 font-titulo text-4xl font-extrabold tabular-nums lg:text-5xl" x-text="Fmt.pesos(resumen.senas)"></p>
+            <p class="mt-1 text-xs text-white/80">
+              Mercado Pago <span class="font-semibold" x-text="Fmt.pesos(resumen.senasMP)"></span>
+              · Efectivo <span class="font-semibold" x-text="Fmt.pesos(resumen.senasEfectivo)"></span>
+            </p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- Agenda -->
+    <main class="mx-auto -mt-10 max-w-7xl px-4 pb-16 sm:px-6">
+      <section class="rounded-[2rem] bg-white p-3 shadow-xl shadow-marca-oscuro/5 ring-1 ring-marca-oscuro/10 sm:p-6"
+               @touchstart.passive="tocarInicio($event)" @touchend="tocarFin($event)">
+
+        <!-- Pestañas -->
+        <div class="mb-5 grid grid-cols-2 gap-1 rounded-2xl bg-marca-oscuro/5 p-1" role="tablist">
+          <button type="button" role="tab" :aria-selected="vista === 'agenda'" @click="vista = 'agenda'; iconos()"
+                  :class="vista === 'agenda' ? 'bg-white text-marca-oscuro shadow-sm' : 'text-marca-oscuro/55 hover:text-marca-oscuro/90'"
+                  class="flex h-11 items-center justify-center gap-2 rounded-xl text-sm font-semibold transition">
+            <i data-lucide="calendar-days" class="h-4 w-4"></i>
+            Agenda
+          </button>
+          <button type="button" role="tab" :aria-selected="vista === 'fijos'" @click="vista = 'fijos'; iconos()"
+                  :class="vista === 'fijos' ? 'bg-white text-marca-oscuro shadow-sm' : 'text-marca-oscuro/55 hover:text-marca-oscuro/90'"
+                  class="flex h-11 items-center justify-center gap-2 rounded-xl text-sm font-semibold transition">
+            <i data-lucide="repeat" class="h-4 w-4"></i>
+            Turnos fijos
+            <span x-show="fijos.length" class="rounded-full bg-fijo px-1.5 text-[11px] font-bold tabular-nums text-marca-oscuro" x-text="fijos.length"></span>
+          </button>
+        </div>
+
+        <div x-show="vista === 'agenda'">
+
+        <!-- Cambio de día -->
+        <div class="flex items-center gap-2">
+          <button type="button" @click="moverDia(-1)" aria-label="Día anterior"
+                  class="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-marca-oscuro/5 transition hover:bg-marca-oscuro/10 active:scale-95">
+            <i data-lucide="chevron-left" class="h-5 w-5"></i>
+          </button>
+          <div class="min-w-0 flex-1 text-center">
+            <p class="text-[11px] font-semibold uppercase tracking-[0.2em] text-marca-oscuro/40" x-text="etiquetaDia"></p>
+            <h2 class="truncate font-titulo text-lg font-extrabold tracking-tight first-letter:uppercase min-[380px]:text-xl sm:text-2xl" x-text="Fmt.diaLargo(fecha)"></h2>
+          </div>
+          <button type="button" @click="moverDia(1)" aria-label="Día siguiente"
+                  class="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-marca-oscuro/5 transition hover:bg-marca-oscuro/10 active:scale-95">
+            <i data-lucide="chevron-right" class="h-5 w-5"></i>
+          </button>
+        </div>
+
+        <!-- Tira de días -->
+        <div data-sin-deslizar class="-mx-3 mt-4 flex gap-2 overflow-x-auto px-3 pb-1 [scrollbar-width:none] sm:mx-0 sm:px-0">
+          <template x-for="d in dias" :key="d">
+            <button type="button" @click="irA(d)" :data-dia-activo="d === fecha"
+                    :class="d === fecha ? 'bg-marca-oscuro text-white shadow-md' : 'bg-marca-oscuro/5 text-marca-oscuro/65 hover:bg-marca-oscuro/10'"
+                    class="flex h-14 min-w-[3.5rem] shrink-0 flex-col items-center justify-center rounded-2xl px-3 text-sm font-semibold transition">
+              <span class="text-[11px] font-medium opacity-70" x-text="d === hoy ? 'Hoy' : Fmt.dia(d).split(' ')[0]"></span>
+              <span class="tabular-nums" x-text="Fmt.dia(d).split(' ')[1]"></span>
+            </button>
+          </template>
+        </div>
+
+        <!-- Grilla: horas + una columna por cancha -->
+        <div class="mt-5 grid grid-cols-[2.5rem_minmax(0,1fr)_minmax(0,1fr)] gap-x-2 sm:grid-cols-[3.5rem_minmax(0,1fr)_minmax(0,1fr)] sm:gap-x-4">
+
+          <div></div>
+          <template x-for="col in columnas" :key="'cab-' + col.cancha.id">
+            <div class="sticky top-16 z-20 bg-white/90 pb-3 pt-1 backdrop-blur">
+              <div class="flex items-center justify-between gap-2 rounded-2xl bg-marca-oscuro/5 px-3 py-2.5">
+                <span class="truncate font-titulo text-base font-extrabold sm:hidden" x-text="col.cancha.tipo || col.cancha.nombre"></span>
+                <span class="hidden truncate font-titulo text-base font-extrabold sm:inline" x-text="col.cancha.nombre"></span>
+                <span class="shrink-0 text-xs font-semibold tabular-nums text-marca-oscuro/55" x-text="col.ocupados + '/' + col.total"></span>
+              </div>
+            </div>
+          </template>
+
+          <div class="grid gap-y-2" :style="filasAgenda">
+            <template x-for="h in horas" :key="'h-' + h">
+              <div class="pt-2 text-right">
+                <span class="inline-block rounded-full px-1.5 py-0.5 text-[11px] font-semibold tabular-nums sm:text-xs"
+                      :class="claseHora(h)" x-text="Fmt.hora(h)"></span>
+              </div>
+            </template>
+          </div>
+
+          <template x-for="col in columnas" :key="'col-' + col.cancha.id">
+            <div class="grid gap-y-2" :style="filasAgenda">
+              <template x-for="(b, i) in col.bloques" :key="b.key">
+                <div class="min-w-0" :style="'grid-row: ' + (b.hora - horas[0] + 1) + ' / span ' + b.horas">
+
+                  <!-- Hueco libre: al tocarlo se abre la reserva manual -->
+                  <template x-if="b.tipo === 'libre'">
+                    <button type="button" @click="abrirManual(col, i)" :disabled="b.pasado"
+                            :aria-label="'Reservar ' + col.cancha.nombre + ' a las ' + Fmt.hora(b.hora)"
+                            class="group flex h-full w-full flex-col items-center justify-center gap-0.5 rounded-2xl border border-dashed border-marca-oscuro/15 text-xs text-marca-oscuro/40 transition enabled:hover:border-solid enabled:hover:border-club enabled:hover:bg-club/5 enabled:active:scale-[0.98] disabled:cursor-default disabled:opacity-40">
+                      <span class="flex items-center gap-1.5 font-medium group-enabled:group-hover:hidden">
+                        <span class="h-1.5 w-1.5 rounded-full bg-libre"></span>
+                        Libre
+                      </span>
+                      <span x-show="b.precio" class="hidden tabular-nums sm:block group-enabled:group-hover:hidden" x-text="Fmt.pesos(b.precio)"></span>
+                      <span class="hidden items-center gap-1 font-semibold text-club group-enabled:group-hover:flex">
+                        <i data-lucide="plus" class="h-4 w-4"></i>
+                        Reservar
+                      </span>
+                    </button>
+                  </template>
+
+                  <template x-if="b.tipo !== 'libre'">
+                    <article :data-reserva="b.reserva.id" role="button" tabindex="0"
+                             @click="abrirDetalle(col, b)" @keydown.enter="abrirDetalle(col, b)"
+                             :aria-label="'Ver reserva de ' + b.reserva.nombre"
+                             class="relative flex h-full min-w-0 cursor-pointer flex-col gap-1 overflow-hidden rounded-2xl border-l-4 p-2.5 transition duration-500 hover:shadow-md hover:shadow-marca-oscuro/5 active:scale-[0.98] sm:p-3"
+                             :class="[
+                               b.tipo === 'fijo' ? 'border-fijo bg-fijo/10' : 'border-ocupado bg-ocupado/10',
+                               b.reserva.id === resaltada ? 'destello !border-club !bg-club/15 ring-2 ring-club' : '',
+                               b.pasado && b.reserva.id !== resaltada ? 'opacity-50' : ''
+                             ]">
+                      <!-- Asistencia -->
+                      <span x-show="b.reserva.asistencia" :title="b.reserva.asistencia === 'vino' ? 'Vino' : 'No vino'"
+                            class="absolute right-2 top-2 grid h-5 w-5 place-items-center rounded-full text-white"
+                            :class="b.reserva.asistencia === 'vino' ? 'bg-libre' : 'bg-alerta'">
+                        <i :data-lucide="b.reserva.asistencia === 'vino' ? 'check' : 'x'" class="h-3 w-3"></i>
+                      </span>
+                      <p class="truncate text-sm font-bold leading-tight"
+                         :class="[b.reserva.asistencia && 'pr-6', b.reserva.asistencia === 'no_vino' && 'line-through decoration-alerta decoration-2']"
+                         x-text="b.reserva.nombre"></p>
+                      <a :href="'tel:+549' + b.reserva.telefono" @click.stop
+                         class="truncate text-xs tabular-nums text-marca-oscuro/65 hover:underline"
+                         x-text="Fmt.telefono(b.reserva.telefono)"></a>
+                      <div class="mt-auto flex min-w-0 items-center gap-1 overflow-hidden">
+                        <span class="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-semibold"
+                              :class="b.sena.clase" :title="b.sena.largo">
+                          <i :data-lucide="b.sena.icono" class="hidden h-3 w-3 min-[380px]:block"></i>
+                          <span class="lg:hidden" x-text="b.sena.corto"></span>
+                          <span class="hidden lg:inline" x-text="b.sena.largo"></span>
+                        </span>
+                        <span x-show="b.horas > 1"
+                              class="hidden shrink-0 rounded-full bg-white px-1.5 py-0.5 text-[11px] font-semibold tabular-nums text-marca-oscuro/75 ring-1 ring-marca-oscuro/10 sm:inline"
+                              x-text="b.horas + ' h'"></span>
+                        <span class="ml-auto inline-flex shrink-0 items-center gap-1 rounded-full bg-white px-1.5 py-0.5 text-[11px] font-semibold text-marca-oscuro/75 ring-1 ring-marca-oscuro/10"
+                              :title="'Origen: ' + b.origen.texto">
+                          <i :data-lucide="b.origen.icono" class="h-3 w-3"></i>
+                          <span class="hidden sm:inline" x-text="b.origen.texto"></span>
+                        </span>
+                      </div>
+                    </article>
+                  </template>
+
+                </div>
+              </template>
+            </div>
+          </template>
+        </div>
+
+        <!-- Referencias -->
+        <div class="mt-6 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 border-t border-marca-oscuro/5 pt-4 text-xs text-marca-oscuro/55">
+          <span class="flex items-center gap-1.5"><span class="h-2 w-2 rounded-full bg-libre"></span>Libre</span>
+          <span class="flex items-center gap-1.5"><span class="h-2 w-2 rounded-full bg-ocupado"></span>Reservado</span>
+          <span class="flex items-center gap-1.5"><span class="h-2 w-2 rounded-full bg-fijo"></span>Fijo</span>
+          <span class="flex items-center gap-1"><i data-lucide="smartphone" class="h-3.5 w-3.5"></i>Web</span>
+          <span class="flex items-center gap-1"><i data-lucide="pencil-line" class="h-3.5 w-3.5"></i>Manual</span>
+          <span class="flex items-center gap-1"><i data-lucide="repeat" class="h-3.5 w-3.5"></i>Fijo</span>
+        </div>
+        </div>
+
+        <!-- ============ Turnos fijos ============ -->
+        <div x-show="vista === 'fijos'">
+
+          <!-- Vacío: invita a cargar el primero -->
+          <div x-show="!fijos.length" class="flex flex-col items-center px-4 py-12 text-center sm:py-16">
+            <span class="relative grid h-20 w-20 place-items-center rounded-3xl bg-fijo/15 text-fijo">
+              <i data-lucide="calendar-clock" class="h-9 w-9"></i>
+            </span>
+            <h2 class="mt-6 font-titulo text-2xl font-extrabold tracking-tight">Todavía no hay turnos fijos</h2>
+            <p class="mt-2 max-w-sm text-sm text-marca-oscuro/55">
+              Cargá los equipos que juegan siempre el mismo día y a la misma hora.
+              Ese horario queda bloqueado todas las semanas y nadie más lo puede reservar.
+            </p>
+            <button type="button" @click="abrirFijo()"
+                    class="mt-8 flex h-14 items-center gap-2 rounded-2xl bg-club px-6 font-semibold text-white shadow-lg shadow-club/25 transition hover:brightness-110 active:scale-[0.98]">
+              <i data-lucide="plus" class="h-5 w-5"></i>
+              Agregar turno fijo
+            </button>
+          </div>
+
+          <!-- Lista agrupada por día -->
+          <div x-show="fijos.length">
+            <div class="flex items-center justify-between gap-3">
+              <div>
+                <h2 class="font-titulo text-xl font-extrabold tracking-tight sm:text-2xl">Turnos fijos</h2>
+                <p class="text-sm text-marca-oscuro/55">Se repiten todas las semanas.</p>
+              </div>
+              <button type="button" @click="abrirFijo()"
+                      class="flex h-11 shrink-0 items-center gap-1.5 rounded-xl bg-club px-4 text-sm font-semibold text-white transition hover:brightness-110 active:scale-[0.98]">
+                <i data-lucide="plus" class="h-4 w-4"></i>
+                Agregar
+              </button>
+            </div>
+
+            <div class="mt-6 space-y-6">
+              <template x-for="grupo in fijosPorDia" :key="grupo.dia">
+                <section>
+                  <h3 class="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-marca-oscuro/40" x-text="grupo.nombre"></h3>
+                  <div class="grid grid-cols-1 gap-2 lg:grid-cols-2">
+                    <template x-for="f in grupo.fijos" :key="f.id">
+                      <article class="flex min-w-0 items-center gap-3 rounded-2xl border-l-4 border-fijo bg-fijo/10 p-3 sm:p-4">
+                        <span class="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-white font-titulo text-sm font-extrabold ring-1 ring-marca-oscuro/10"
+                              x-text="nombreCancha(f.canchaId)"></span>
+                        <div class="min-w-0 flex-1">
+                          <p class="truncate text-sm font-bold" x-text="f.responsable"></p>
+                          <p class="truncate text-xs tabular-nums text-marca-oscuro/65">
+                            <span x-text="Fmt.rango(f.hora, f.horas)"></span> ·
+                            <a :href="'tel:+549' + f.telefono" class="hover:underline" x-text="Fmt.telefono(f.telefono)"></a>
+                          </p>
+                        </div>
+                        <button type="button" @click="borrarFijo(f)"
+                                :aria-label="borrando === f.id ? 'Confirmar borrado' : 'Borrar turno fijo de ' + f.responsable"
+                                :class="borrando === f.id ? 'bg-alerta px-3 text-white' : 'w-11 bg-white text-marca-oscuro/55 ring-1 ring-marca-oscuro/10 hover:text-alerta'"
+                                class="flex h-11 shrink-0 items-center justify-center gap-1.5 rounded-xl text-sm font-semibold transition">
+                          <i data-lucide="trash-2" class="h-4 w-4"></i>
+                          <span x-show="borrando === f.id">¿Borrar?</span>
+                        </button>
+                      </article>
+                    </template>
+                  </div>
+                </section>
+              </template>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- Lo que viene -->
+    <!-- El componente de PC 3 trae su propio título -->
+    <div id="lo-que-viene" class="mx-auto max-w-7xl scroll-mt-20 px-4 pb-16 sm:px-6">
+      <div data-include="../componentes/proximamente.html"></div>
+    </div>
+  </div>
+
+  <!-- Aviso en vivo: reserva nueva de un jugador o reserva manual guardada -->
+  <div class="pointer-events-none fixed inset-x-4 bottom-4 z-50 mx-auto max-w-md" role="status" aria-live="polite">
+    <template x-for="a in (aviso ? [aviso] : [])" :key="a.id">
+      <div class="aviso-entra pointer-events-auto overflow-hidden rounded-3xl bg-marca-oscuro text-white shadow-2xl shadow-marca-oscuro/40 ring-1 ring-white/10">
+        <div class="flex items-center gap-3 p-4">
+          <span class="relative grid h-12 w-12 shrink-0 place-items-center rounded-2xl"
+                :class="a.tipo === 'nueva' ? 'bg-club' : 'bg-libre'">
+            <span x-show="a.tipo === 'nueva'" class="absolute inset-0 animate-ping rounded-2xl bg-club opacity-40"></span>
+            <i :data-lucide="a.tipo === 'nueva' ? 'bell-ring' : 'check'" class="relative h-6 w-6"></i>
+          </span>
+          <div class="min-w-0 flex-1">
+            <p class="font-titulo text-base font-extrabold leading-snug" x-text="a.titulo"></p>
+            <p class="mt-0.5 truncate text-xs text-white/60" x-text="a.texto"></p>
+          </div>
+          <button type="button" @click="aviso = null" aria-label="Cerrar aviso"
+                  class="grid h-11 w-11 shrink-0 place-items-center rounded-full text-white/50 transition hover:bg-white/10 hover:text-white">
+            <i data-lucide="x" class="h-5 w-5"></i>
+          </button>
+        </div>
+        <div class="h-1 bg-white/10">
+          <div class="vaciar h-full" :class="a.tipo === 'nueva' ? 'bg-club' : 'bg-libre'"></div>
+        </div>
+      </div>
+    </template>
+  </div>
+
+  <!-- Reserva manual: hoja desde abajo en el celular, ventana centrada en la notebook -->
+  <template x-if="form">
+    <div class="fixed inset-0 z-40 flex items-end justify-center sm:items-center sm:p-6" role="dialog" aria-modal="true" aria-labelledby="titulo-manual">
+      <div class="absolute inset-0 bg-marca-oscuro/60 backdrop-blur-sm" @click="cerrarManual()"></div>
+
+      <form @submit.prevent="guardarManual()"
+            class="hoja-sube relative max-h-[92vh] w-full overflow-y-auto rounded-t-[2rem] bg-white p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-2xl sm:max-w-md sm:rounded-[2rem] sm:p-7">
+        <div class="mx-auto mb-4 h-1.5 w-10 rounded-full bg-marca-oscuro/10 sm:hidden"></div>
+
+        <div class="flex items-start justify-between gap-3">
+          <div>
+            <p class="text-[11px] font-semibold uppercase tracking-[0.2em] text-marca-oscuro/40">Reserva manual</p>
+            <h2 id="titulo-manual" class="mt-1 font-titulo text-2xl font-extrabold tracking-tight" x-text="form.cancha.nombre"></h2>
+            <p class="mt-1 text-sm text-marca-oscuro/55 first-letter:uppercase"
+               x-text="Fmt.diaLargo(form.fecha) + ' · ' + Fmt.rango(form.hora, form.horas)"></p>
+          </div>
+          <button type="button" @click="cerrarManual()" aria-label="Cerrar"
+                  class="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-marca-oscuro/5 transition hover:bg-marca-oscuro/10">
+            <i data-lucide="x" class="h-5 w-5"></i>
+          </button>
+        </div>
+
+        <!-- Duración -->
+        <div x-show="form.maxHoras > 1" class="mt-5">
+          <p class="text-sm font-semibold">Duración</p>
+          <div class="mt-2 flex gap-2">
+            <template x-for="n in form.maxHoras" :key="n">
+              <button type="button" @click="form.horas = n"
+                      :class="form.horas === n ? 'bg-marca-oscuro text-white' : 'bg-marca-oscuro/5 text-marca-oscuro/65 hover:bg-marca-oscuro/10'"
+                      class="h-11 flex-1 rounded-xl text-sm font-semibold tabular-nums transition"
+                      x-text="n + ' h'"></button>
+            </template>
+          </div>
+        </div>
+
+        <label class="mt-5 block">
+          <span class="text-sm font-semibold">Nombre</span>
+          <input type="text" x-ref="nombreManual" x-model="form.nombre" @input="form.error = ''"
+                 autocomplete="off" placeholder="Ej: Martín Gómez"
+                 class="mt-2 h-12 w-full rounded-xl border-0 bg-marca-oscuro/5 px-4 text-base outline-none ring-2 ring-transparent transition placeholder:text-marca-oscuro/40 focus:bg-white focus:ring-club">
+        </label>
+
+        <label class="mt-4 block">
+          <span class="text-sm font-semibold">Teléfono</span>
+          <div class="mt-2 flex h-12 items-center rounded-xl bg-marca-oscuro/5 ring-2 ring-transparent transition focus-within:bg-white focus-within:ring-club">
+            <span class="shrink-0 whitespace-nowrap pl-4 pr-2 text-base text-marca-oscuro/40">+54 9</span>
+            <input type="tel" inputmode="numeric" x-model="form.telefono" @input="form.error = ''"
+                   autocomplete="off" placeholder="11 2345 6789"
+                   class="h-full w-full rounded-r-xl border-0 bg-transparent pr-4 text-base tabular-nums outline-none placeholder:text-marca-oscuro/40">
+          </div>
+          <span class="mt-1.5 block text-xs text-marca-oscuro/40">Con código de área, sin 0 ni 15.</span>
+        </label>
+
+        <!-- Seña -->
+        <button type="button" @click="form.senaEfectivo = !form.senaEfectivo" role="switch" :aria-checked="form.senaEfectivo"
+                class="mt-5 flex w-full items-center gap-3 rounded-2xl bg-marca-oscuro/5 p-4 text-left transition hover:bg-marca-oscuro/10">
+          <i data-lucide="banknote" class="h-5 w-5 shrink-0 text-marca-oscuro/55"></i>
+          <span class="min-w-0 flex-1">
+            <span class="block text-sm font-semibold">Ya cobré la seña en efectivo</span>
+            <span class="block text-xs text-marca-oscuro/55" x-text="Fmt.pesos(senaManual) + ' · si no, queda pendiente'"></span>
+          </span>
+          <span class="relative h-7 w-12 shrink-0 rounded-full transition" :class="form.senaEfectivo ? 'bg-libre' : 'bg-marca-oscuro/20'">
+            <span class="absolute top-1 h-5 w-5 rounded-full bg-white shadow transition-all" :class="form.senaEfectivo ? 'left-6' : 'left-1'"></span>
+          </span>
+        </button>
+
+        <p x-show="form.error" x-text="form.error"
+           class="mt-4 rounded-xl bg-alerta/10 px-4 py-3 text-sm font-medium text-alerta"></p>
+
+        <div class="mt-6 flex items-center justify-between gap-3 border-t border-marca-oscuro/5 pt-5">
+          <div>
+            <p class="text-xs text-marca-oscuro/55">Total del turno</p>
+            <p class="font-titulo text-2xl font-extrabold tabular-nums" x-text="Fmt.pesos(form.precio * form.horas)"></p>
+          </div>
+          <button type="submit"
+                  class="flex h-14 items-center gap-2 rounded-2xl bg-club px-6 font-semibold text-white shadow-lg shadow-club/25 transition hover:brightness-110 active:scale-[0.98]">
+            <i data-lucide="calendar-check" class="h-5 w-5"></i>
+            Guardar reserva
+          </button>
+        </div>
+      </form>
+    </div>
+  </template>
+
+  <!-- Nuevo turno fijo -->
+  <template x-if="formFijo">
+    <div class="fixed inset-0 z-40 flex items-end justify-center sm:items-center sm:p-6" role="dialog" aria-modal="true" aria-labelledby="titulo-fijo">
+      <div class="absolute inset-0 bg-marca-oscuro/60 backdrop-blur-sm" @click="formFijo = null"></div>
+
+      <form @submit.prevent="guardarFijo()"
+            class="hoja-sube relative max-h-[92vh] w-full overflow-y-auto rounded-t-[2rem] bg-white p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-2xl sm:max-w-lg sm:rounded-[2rem] sm:p-7">
+        <div class="mx-auto mb-4 h-1.5 w-10 rounded-full bg-marca-oscuro/10 sm:hidden"></div>
+
+        <div class="flex items-start justify-between gap-3">
+          <div>
+            <p class="text-[11px] font-semibold uppercase tracking-[0.2em] text-marca-oscuro/40">Todas las semanas</p>
+            <h2 id="titulo-fijo" class="mt-1 font-titulo text-2xl font-extrabold tracking-tight">Nuevo turno fijo</h2>
+          </div>
+          <button type="button" @click="formFijo = null" aria-label="Cerrar"
+                  class="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-marca-oscuro/5 transition hover:bg-marca-oscuro/10">
+            <i data-lucide="x" class="h-5 w-5"></i>
+          </button>
+        </div>
+
+        <p class="mt-5 text-sm font-semibold">Cancha</p>
+        <div class="mt-2 grid grid-cols-2 gap-2">
+          <template x-for="c in canchas" :key="c.id">
+            <button type="button" @click="formFijo.canchaId = c.id; formFijo.error = ''"
+                    :class="formFijo.canchaId === c.id ? 'bg-marca-oscuro text-white' : 'bg-marca-oscuro/5 text-marca-oscuro/65 hover:bg-marca-oscuro/10'"
+                    class="h-11 rounded-xl text-sm font-semibold transition" x-text="c.nombre"></button>
+          </template>
+        </div>
+
+        <p class="mt-5 text-sm font-semibold">Día</p>
+        <div class="mt-2 grid grid-cols-7 gap-1.5">
+          <template x-for="d in semana" :key="d">
+            <button type="button" @click="formFijo.diaSemana = d; formFijo.error = ''" :aria-label="nombresDias[d]"
+                    :class="formFijo.diaSemana === d ? 'bg-marca-oscuro text-white' : 'bg-marca-oscuro/5 text-marca-oscuro/65 hover:bg-marca-oscuro/10'"
+                    class="h-11 rounded-xl text-sm font-semibold transition" x-text="nombresDias[d].slice(0, 2)"></button>
+          </template>
+        </div>
+
+        <p class="mt-5 text-sm font-semibold">Hora de inicio</p>
+        <div class="mt-2 grid grid-cols-6 gap-1.5">
+          <template x-for="h in horas" :key="h">
+            <button type="button" @click="elegirHoraFijo(h); formFijo.error = ''"
+                    :class="formFijo.hora === h ? 'bg-marca-oscuro text-white' : 'bg-marca-oscuro/5 text-marca-oscuro/65 hover:bg-marca-oscuro/10'"
+                    class="h-11 rounded-xl text-sm font-semibold tabular-nums transition" x-text="h"></button>
+          </template>
+        </div>
+
+        <p class="mt-5 text-sm font-semibold">Cantidad de horas</p>
+        <div class="mt-2 flex gap-2">
+          <template x-for="n in maxHorasFijo" :key="n">
+            <button type="button" @click="formFijo.horas = n; formFijo.error = ''"
+                    :class="formFijo.horas === n ? 'bg-marca-oscuro text-white' : 'bg-marca-oscuro/5 text-marca-oscuro/65 hover:bg-marca-oscuro/10'"
+                    class="h-11 flex-1 rounded-xl text-sm font-semibold tabular-nums transition" x-text="n + ' h'"></button>
+          </template>
+        </div>
+
+        <label class="mt-5 block">
+          <span class="text-sm font-semibold">Responsable</span>
+          <input type="text" x-model="formFijo.responsable" @input="formFijo.error = ''"
+                 autocomplete="off" placeholder="Ej: Equipo Los Pibes (Diego)"
+                 class="mt-2 h-12 w-full rounded-xl border-0 bg-marca-oscuro/5 px-4 text-base outline-none ring-2 ring-transparent transition placeholder:text-marca-oscuro/40 focus:bg-white focus:ring-club">
+        </label>
+
+        <label class="mt-4 block">
+          <span class="text-sm font-semibold">Teléfono</span>
+          <div class="mt-2 flex h-12 items-center rounded-xl bg-marca-oscuro/5 ring-2 ring-transparent transition focus-within:bg-white focus-within:ring-club">
+            <span class="shrink-0 whitespace-nowrap pl-4 pr-2 text-base text-marca-oscuro/40">+54 9</span>
+            <input type="tel" inputmode="numeric" x-model="formFijo.telefono" @input="formFijo.error = ''"
+                   autocomplete="off" placeholder="11 2345 6789"
+                   class="h-full w-full rounded-r-xl border-0 bg-transparent pr-4 text-base tabular-nums outline-none placeholder:text-marca-oscuro/40">
+          </div>
+        </label>
+
+        <!-- Resumen de lo que se va a bloquear -->
+        <div class="mt-5 flex items-center gap-3 rounded-2xl border-l-4 border-fijo bg-fijo/10 p-4">
+          <i data-lucide="repeat" class="h-5 w-5 shrink-0 text-fijo"></i>
+          <p class="text-sm">
+            Se bloquea <span class="font-semibold" x-text="textoFijo(formFijo)"></span>.
+          </p>
+        </div>
+
+        <p x-show="formFijo.error" x-text="formFijo.error"
+           class="mt-4 rounded-xl bg-alerta/10 px-4 py-3 text-sm font-medium text-alerta"></p>
+
+        <button type="submit"
+                class="mt-6 flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-club font-semibold text-white shadow-lg shadow-club/25 transition hover:brightness-110 active:scale-[0.98]">
+          <i data-lucide="calendar-check" class="h-5 w-5"></i>
+          Guardar turno fijo
+        </button>
+      </form>
+    </div>
+  </template>
+
+  <!-- Configuración: solo vista, no guarda nada -->
+  <template x-if="config">
+    <div class="fixed inset-0 z-40 flex items-end justify-center sm:items-center sm:p-6" role="dialog" aria-modal="true" aria-labelledby="titulo-config">
+      <div class="absolute inset-0 bg-marca-oscuro/60 backdrop-blur-sm" @click="config = false"></div>
+
+      <div class="hoja-sube relative max-h-[92vh] w-full overflow-y-auto rounded-t-[2rem] bg-white p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-2xl sm:max-w-lg sm:rounded-[2rem] sm:p-7">
+        <div class="mx-auto mb-4 h-1.5 w-10 rounded-full bg-marca-oscuro/10 sm:hidden"></div>
+
+        <div class="flex items-start justify-between gap-3">
+          <div>
+            <p class="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.2em] text-marca-oscuro/40">
+              <i data-lucide="lock" class="h-3.5 w-3.5"></i>
+              Solo vista
+            </p>
+            <h2 id="titulo-config" class="mt-1 font-titulo text-2xl font-extrabold tracking-tight">Configuración</h2>
+          </div>
+          <button type="button" @click="config = false" aria-label="Cerrar"
+                  class="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-marca-oscuro/5 transition hover:bg-marca-oscuro/10">
+            <i data-lucide="x" class="h-5 w-5"></i>
+          </button>
+        </div>
+
+        <!-- Canchas y precios -->
+        <h3 class="mt-6 text-xs font-semibold uppercase tracking-[0.18em] text-marca-oscuro/40">Canchas</h3>
+        <div class="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+          <template x-for="c in canchas" :key="c.id">
+            <div class="rounded-2xl bg-marca-oscuro/5 p-4">
+              <div class="flex items-center justify-between gap-2">
+                <span class="font-titulo text-lg font-extrabold" x-text="c.nombre"></span>
+                <span class="rounded-full bg-white px-2 py-0.5 text-[11px] font-semibold text-marca-oscuro/65 ring-1 ring-marca-oscuro/10" x-text="c.tipo"></span>
+              </div>
+              <p class="mt-0.5 text-xs text-marca-oscuro/55" x-text="[c.techada ? 'Techada' : 'Descubierta', c.superficie].filter(Boolean).join(' · ')"></p>
+              <p class="mt-3 font-titulo text-2xl font-extrabold tabular-nums">
+                <span x-text="Fmt.pesos(c.precioHora)"></span><span class="text-sm font-semibold text-marca-oscuro/55"> / hora</span>
+              </p>
+            </div>
+          </template>
+        </div>
+
+        <!-- Turnos y seña -->
+        <h3 class="mt-6 text-xs font-semibold uppercase tracking-[0.18em] text-marca-oscuro/40">Turnos</h3>
+        <div class="mt-2 divide-y divide-marca-oscuro/5 overflow-hidden rounded-2xl ring-1 ring-marca-oscuro/10">
+          <div class="flex items-center gap-3 p-4">
+            <i data-lucide="clock" class="h-5 w-5 shrink-0 text-marca-oscuro/40"></i>
+            <span class="flex-1 text-sm">Horario</span>
+            <span class="text-sm font-semibold tabular-nums" x-text="horarioTexto"></span>
+          </div>
+          <div class="flex items-center gap-3 p-4">
+            <i data-lucide="timer" class="h-5 w-5 shrink-0 text-marca-oscuro/40"></i>
+            <span class="flex-1 text-sm">Duración del turno</span>
+            <span class="text-sm font-semibold" x-text="duracionTexto"></span>
+          </div>
+          <div class="flex items-center gap-3 p-4">
+            <i data-lucide="wallet" class="h-5 w-5 shrink-0 text-marca-oscuro/40"></i>
+            <span class="flex-1 text-sm">Seña</span>
+            <span class="text-sm font-semibold tabular-nums" x-text="Fmt.pesos(senaPorHora) + ' por hora'"></span>
+          </div>
+        </div>
+
+        <!-- Reglas -->
+        <h3 class="mt-6 text-xs font-semibold uppercase tracking-[0.18em] text-marca-oscuro/40">Reglas</h3>
+        <div class="mt-2 divide-y divide-marca-oscuro/5 overflow-hidden rounded-2xl ring-1 ring-marca-oscuro/10">
+          <div class="flex items-center gap-3 p-4">
+            <i data-lucide="credit-card" class="h-5 w-5 shrink-0 text-marca-oscuro/40"></i>
+            <span class="min-w-0 flex-1">
+              <span class="block text-sm font-semibold"
+                    x-text="'Comisión de Mercado Pago a cargo ' + (comisionDelComplejo ? 'del complejo' : 'del jugador')"></span>
+              <span x-show="comisionDelComplejo" class="block text-xs text-marca-oscuro/55">El jugador paga la seña justa, sin recargos.</span>
+            </span>
+            <span class="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-libre text-white"><i data-lucide="check" class="h-4 w-4"></i></span>
+          </div>
+          <div class="flex items-center gap-3 p-4">
+            <i data-lucide="ban" class="h-5 w-5 shrink-0 text-marca-oscuro/40"></i>
+            <span class="min-w-0 flex-1">
+              <span class="block text-sm font-semibold"
+                    x-text="complejo.cancelacionGratuita ? 'Con cancelación gratuita' : 'Sin cancelación gratuita'"></span>
+              <span x-show="!complejo.cancelacionGratuita" class="block text-xs text-marca-oscuro/55">Se le avisa al jugador en el resumen, antes de pagar.</span>
+            </span>
+            <span class="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-libre text-white"><i data-lucide="check" class="h-4 w-4"></i></span>
+          </div>
+        </div>
+
+        <p class="mt-6 flex items-start gap-2 rounded-2xl bg-marca-oscuro/5 p-4 text-xs text-marca-oscuro/55">
+          <i data-lucide="info" class="mt-0.5 h-4 w-4 shrink-0"></i>
+          En la versión final vas a poder cambiar precios, horarios y reglas desde acá.
+        </p>
+      </div>
+    </div>
+  </template>
+
+  <!-- Confirmación para reiniciar la demo -->
+  <template x-if="confirmarReinicio">
+    <div class="fixed inset-0 z-50 flex items-center justify-center p-4" role="alertdialog" aria-modal="true" aria-labelledby="titulo-reinicio">
+      <div class="absolute inset-0 bg-marca-oscuro/60 backdrop-blur-sm" @click="confirmarReinicio = false"></div>
+
+      <div class="aviso-entra relative w-full max-w-sm rounded-[2rem] bg-white p-6 text-center shadow-2xl">
+        <span class="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-alerta/10 text-alerta">
+          <i data-lucide="rotate-ccw" class="h-7 w-7"></i>
+        </span>
+        <h2 id="titulo-reinicio" class="mt-4 font-titulo text-2xl font-extrabold tracking-tight">¿Reiniciar la demo?</h2>
+        <p class="mt-2 text-sm text-marca-oscuro/55">
+          Se borran las reservas y los turnos fijos que cargaste, y vuelven las reservas de ejemplo de hoy y mañana.
+        </p>
+        <div class="mt-6 grid grid-cols-2 gap-2">
+          <button type="button" @click="confirmarReinicio = false"
+                  class="h-12 rounded-xl bg-marca-oscuro/5 text-sm font-semibold transition hover:bg-marca-oscuro/10">
+            Cancelar
+          </button>
+          <button type="button" @click="reiniciarDemo()"
+                  class="h-12 rounded-xl bg-alerta text-sm font-semibold text-white transition hover:brightness-110 active:scale-[0.98]">
+            Sí, reiniciar
+          </button>
+        </div>
+      </div>
+    </div>
+  </template>
+
+  <!-- Detalle de una reserva: asistencia y seña -->
+  <template x-if="detalle">
+    <div class="fixed inset-0 z-40 flex items-end justify-center sm:items-center sm:p-6" role="dialog" aria-modal="true" aria-labelledby="titulo-detalle">
+      <div class="absolute inset-0 bg-marca-oscuro/60 backdrop-blur-sm" @click="detalle = null"></div>
+
+      <div class="hoja-sube relative max-h-[92vh] w-full overflow-y-auto rounded-t-[2rem] bg-white p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-2xl sm:max-w-md sm:rounded-[2rem] sm:p-7">
+        <div class="mx-auto mb-4 h-1.5 w-10 rounded-full bg-marca-oscuro/10 sm:hidden"></div>
+
+        <div class="flex items-start justify-between gap-3">
+          <div class="min-w-0">
+            <p class="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.2em] text-marca-oscuro/40">
+              <i :data-lucide="detalle.origen.icono" class="h-3.5 w-3.5"></i>
+              <span x-text="detalle.reserva.origen === 'fijo' ? 'Turno fijo' : 'Reserva ' + detalle.origen.texto.toLowerCase()"></span>
+            </p>
+            <h2 id="titulo-detalle" class="mt-1 truncate font-titulo text-2xl font-extrabold tracking-tight" x-text="detalle.reserva.nombre"></h2>
+            <p class="mt-1 text-sm text-marca-oscuro/55 first-letter:uppercase"
+               x-text="detalle.cancha.nombre + ' · ' + Fmt.dia(detalle.reserva.fecha) + ' · ' + Fmt.rango(detalle.reserva.hora, detalle.horas)"></p>
+          </div>
+          <button type="button" @click="detalle = null" aria-label="Cerrar"
+                  class="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-marca-oscuro/5 transition hover:bg-marca-oscuro/10">
+            <i data-lucide="x" class="h-5 w-5"></i>
+          </button>
+        </div>
+
+        <!-- Contacto -->
+        <div class="mt-5 grid grid-cols-2 gap-2">
+          <a :href="'tel:+549' + detalle.reserva.telefono"
+             class="flex h-12 items-center justify-center gap-2 rounded-xl bg-marca-oscuro/5 text-sm font-semibold transition hover:bg-marca-oscuro/10">
+            <i data-lucide="phone" class="h-4 w-4"></i>
+            Llamar
+          </a>
+          <a :href="'https://wa.me/549' + detalle.reserva.telefono" target="_blank" rel="noopener"
+             class="flex h-12 items-center justify-center gap-2 rounded-xl bg-marca-oscuro/5 text-sm font-semibold transition hover:bg-marca-oscuro/10">
+            <i data-lucide="message-circle" class="h-4 w-4"></i>
+            WhatsApp
+          </a>
+        </div>
+        <p class="mt-2 text-center text-xs tabular-nums text-marca-oscuro/40" x-text="Fmt.telefono(detalle.reserva.telefono)"></p>
+
+        <!-- Asistencia -->
+        <p class="mt-5 text-sm font-semibold">¿Vino a jugar?</p>
+        <div class="mt-2 grid grid-cols-2 gap-2">
+          <button type="button" @click="marcarAsistencia('vino')" :aria-pressed="detalle.reserva.asistencia === 'vino'"
+                  :class="detalle.reserva.asistencia === 'vino' ? 'bg-libre text-white shadow-lg shadow-libre/25' : 'bg-marca-oscuro/5 text-marca-oscuro/75 hover:bg-marca-oscuro/10'"
+                  class="flex h-14 items-center justify-center gap-2 rounded-2xl font-semibold transition active:scale-[0.98]">
+            <i data-lucide="check" class="h-5 w-5"></i>
+            Vino
+          </button>
+          <button type="button" @click="marcarAsistencia('no_vino')" :aria-pressed="detalle.reserva.asistencia === 'no_vino'"
+                  :class="detalle.reserva.asistencia === 'no_vino' ? 'bg-alerta text-white shadow-lg shadow-alerta/25' : 'bg-marca-oscuro/5 text-marca-oscuro/75 hover:bg-marca-oscuro/10'"
+                  class="flex h-14 items-center justify-center gap-2 rounded-2xl font-semibold transition active:scale-[0.98]">
+            <i data-lucide="x" class="h-5 w-5"></i>
+            No vino
+          </button>
+        </div>
+
+        <!-- Seña -->
+        <p class="mt-5 text-sm font-semibold">Seña</p>
+        <div x-show="detalle.reserva.senaPagada"
+             class="mt-2 flex items-center gap-3 rounded-2xl bg-libre/10 p-4">
+          <span class="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-libre text-white">
+            <i data-lucide="check" class="h-5 w-5"></i>
+          </span>
+          <div class="min-w-0">
+            <p class="text-sm font-semibold" x-text="detalle.sena.largo"></p>
+            <p class="text-xs tabular-nums text-marca-oscuro/55" x-text="Fmt.pesos(detalle.reserva.sena)"></p>
+          </div>
+        </div>
+        <button type="button" x-show="!detalle.reserva.senaPagada" @click="cobrarSenaEfectivo()"
+                class="mt-2 flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-club font-semibold text-white shadow-lg shadow-club/25 transition hover:brightness-110 active:scale-[0.98]">
+          <i data-lucide="banknote" class="h-5 w-5"></i>
+          Seña cobrada en efectivo
+          <span x-show="detalle.reserva.sena" class="tabular-nums opacity-80" x-text="'· ' + Fmt.pesos(detalle.reserva.sena)"></span>
+        </button>
+      </div>
+    </div>
+  </template>
+
+</div>
 </body>
 </html>
