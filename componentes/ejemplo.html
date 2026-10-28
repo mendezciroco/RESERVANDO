@@ -1,0 +1,9 @@
+<!-- Componente de ejemplo para prueba.html: muestra que include.js lo cargó y le pasó data-ambito -->
+<section x-data="{ ambito: $el.dataset.ambito || 'sin ámbito' }" class="rounded-2xl bg-marca/10 p-4 ring-1 ring-marca/30">
+  <p class="flex items-center gap-2 font-semibold text-marca">
+    <i data-lucide="puzzle" class="h-5 w-5"></i> Componente de ejemplo cargado
+  </p>
+  <p class="mt-1 text-sm text-marca-claro/75">
+    Recibió <code>data-ambito</code> = <span class="font-semibold text-marca-claro" x-text="ambito"></span>
+  </p>
+</section>

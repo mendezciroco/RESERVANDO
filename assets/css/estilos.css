@@ -1,0 +1,30 @@
+/* Estilos que Tailwind no cubre. Lo mínimo indispensable: todo lo demás va con clases y tokens. */
+
+/* Alpine: oculta lo que tiene x-cloak hasta que Alpine arranca */
+[x-cloak] {
+  display: none !important;
+}
+
+/* Sin el destello gris al tocar en el celular */
+html {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Recuadro que pone include.js cuando un componente todavía no existe */
+.componente-pendiente {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  min-height: 6rem;
+  margin: 0.5rem 0;
+  padding: 1rem;
+  border: 2px dashed rgba(128, 128, 128, 0.6);
+  border-radius: 1rem;
+  background: rgba(128, 128, 128, 0.12);
+  color: inherit;
+  opacity: 0.8;
+  font-size: 0.875rem;
+  text-align: center;
+}

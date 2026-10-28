@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="es-AR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>GOLES · Reservá tu cancha (provisorio)</title>
+  <meta name="description" content="Reservá tu turno de fútbol 5 o fútbol 7 en GOLES desde el celular y pagá la seña con Mercado Pago.">
+  <link rel="icon" type="image/svg+xml" href="../assets/img/favicon.svg">
+
+  <!-- Orden de la sección 5 de CLAUDE.md -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="../assets/js/config.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="../assets/css/estilos.css">
+  <script src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js"></script>
+  <script src="../assets/js/datos.js"></script>
+  <script src="../assets/js/formato.js"></script>
+  <script src="../assets/js/store.js"></script>
+  <script src="../assets/js/include.js"></script>
+  <script src="../assets/js/plano.js"></script><!-- llega con la rama marca -->
+  <script src="../assets/js/jugador.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+</head>
+<body x-data="jugador()" class="min-h-screen bg-marca-oscuro font-texto text-marca-claro antialiased">
+
+  <main class="mx-auto flex min-h-screen max-w-md flex-col items-center justify-center gap-3 px-4 text-center">
+    <p class="font-titulo text-5xl font-extrabold uppercase tracking-tight">GOLES</p>
+    <h1 class="text-lg text-marca-claro/75">App del jugador · esqueleto provisorio</h1>
+    <p x-cloak class="text-sm text-marca-claro/60" x-text="'Hoy es ' + Fmt.diaLargo(Store.hoy())"></p>
+  </main>
+
+</body>
+</html>

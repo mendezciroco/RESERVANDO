@@ -1,0 +1,331 @@
+<!doctype html>
+<html lang="es-AR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Reservando.com · Prueba de la base</title>
+  <meta name="description" content="Página de prueba del Paso 0: componentes, turnos del día, reservas, turnos fijos, login simulado y eventos en vivo.">
+  <link rel="icon" type="image/svg+xml" href="assets/img/favicon.svg">
+
+  <!-- Orden de la sección 5 de CLAUDE.md -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="assets/js/config.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="assets/css/estilos.css">
+  <script src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js"></script>
+  <script src="assets/js/datos.js"></script>
+  <script src="assets/js/formato.js"></script>
+  <script src="assets/js/store.js"></script>
+  <script src="assets/js/include.js"></script>
+  <script src="assets/js/plano.js"></script><!-- llega con la rama marca -->
+  <script>
+    // Lógica de la página de prueba. Usa solo Store y Fmt, igual que las pantallas reales.
+    function prueba() {
+      return {
+        fecha: Store.hoy(),
+        dias: Store.proximosDias(2),
+        canchas: Store.canchas(),
+        filas: [],          // [{ hora, turnos: [Turno por cancha] }]
+        reservas: [],       // reservas del día, para mostrar el nombre en la grilla
+        horaElegida: null,
+        sesiones: { jugador: null, panel: null },
+        eventos: [],
+        mensaje: null,      // { ok, texto }
+        whatsapp: null,     // { telefono, codigo }: notificación simulada
+        componentes: window.componentesListos ? 'listos' : 'cargando…',
+
+        init() {
+          this.actualizar();
+          Store.alCambiar((cambio) => {
+            this.eventos.unshift({
+              id: Date.now() + Math.random(),
+              hora: new Date().toLocaleTimeString('es-AR'),
+              tipo: cambio.tipo,
+              detalle: this.describir(cambio),
+            });
+            this.actualizar();
+          });
+          window.addEventListener('componentes-listos', () => { this.componentes = 'listos'; });
+          window.addEventListener('cancha-elegida', (evento) => {
+            this.avisar(true, `El plano eligió la cancha ${evento.detail.canchaId.toUpperCase()}.`);
+          });
+        },
+
+        actualizar() {
+          const turnos = Store.turnosDelDia(this.fecha);
+          const horas = [...new Set(turnos.map((turno) => turno.hora))];
+          this.filas = horas.map((hora) => ({
+            hora,
+            turnos: this.canchas.map((cancha) => turnos.find((t) => t.canchaId === cancha.id && t.hora === hora)),
+          }));
+          this.reservas = Store.reservasDelDia(this.fecha);
+          this.sesiones = { jugador: Store.usuarioActual('jugador'), panel: Store.usuarioActual('panel') };
+        },
+
+        cambiarDia(fecha) {
+          this.fecha = fecha;
+          this.horaElegida = null;
+          this.actualizar();
+        },
+
+        // Avisa al plano qué horario se está mirando
+        elegirHora(hora) {
+          this.horaElegida = hora;
+          window.dispatchEvent(new CustomEvent('cambio-horario', { detail: { fecha: this.fecha, hora } }));
+        },
+
+        nombreDe(reservaId) {
+          const reserva = this.reservas.find((una) => una.id === reservaId);
+          return reserva ? reserva.nombre : '';
+        },
+
+        etiqueta(turno) {
+          return { libre: 'Libre', reservado: 'Reservado', fijo: 'Fijo' }[turno.estado];
+        },
+
+        avisar(ok, texto) {
+          this.mensaje = { ok, texto };
+        },
+
+        // ----- Botones -----
+
+        // Busca el primer turno libre de F5 que no haya pasado, desde hoy en adelante
+        reservarPrimeroLibre() {
+          const usuario = this.sesiones.jugador || { nombre: 'Jugador de prueba', telefono: '1100001111' };
+          for (const fecha of Store.proximosDias(7)) {
+            const turno = Store.turnosDelDia(fecha, 'f5').find((t) => t.estado === 'libre' && !t.pasado);
+            if (!turno) continue;
+            const resultado = Store.reservar({
+              canchaId: 'f5', fecha, hora: turno.hora, horas: 1, nombre: usuario.nombre, telefono: usuario.telefono,
+            });
+            if (!resultado.ok) return this.avisar(false, resultado.error);
+            if (fecha !== this.fecha && this.dias.includes(fecha)) this.cambiarDia(fecha);
+            return this.avisar(true, `Reservado: F5, ${Fmt.dia(fecha)} de ${Fmt.rango(turno.hora, 1)} a nombre de ${usuario.nombre}.`);
+          }
+          this.avisar(false, 'No hay turnos libres de F5 en los próximos 7 días.');
+        },
+
+        // Crea un fijo el mismo día de la semana que se está mirando, en el primer horario que no choque
+        crearFijoDePrueba() {
+          const [anio, mes, dia] = this.fecha.split('-').map(Number);
+          const diaSemana = new Date(Date.UTC(anio, mes - 1, dia)).getUTCDay();
+          const candidatos = Store.turnosDelDia(this.fecha)
+            .filter((turno) => turno.estado === 'libre')
+            .sort((a, b) => a.pasado - b.pasado);
+          let ultimoError = 'No hay horarios libres para un fijo ese día.';
+          for (const turno of candidatos) {
+            const resultado = Store.crearTurnoFijo({
+              canchaId: turno.canchaId, diaSemana, hora: turno.hora, horas: 1,
+              responsable: 'Fijo de prueba', telefono: '1144445555',
+            });
+            if (resultado.ok) {
+              const fijo = resultado.turnoFijo;
+              return this.avisar(true, `Fijo creado: todos los ${Fmt.diaSemana(fijo.diaSemana)} de ${Fmt.rango(fijo.hora, fijo.horas)} en ${fijo.canchaId.toUpperCase()}.`);
+            }
+            ultimoError = resultado.error;
+          }
+          this.avisar(false, ultimoError);
+        },
+
+        // Login simulado: pide el código, lo muestra como si llegara por WhatsApp y lo verifica
+        login(ambito) {
+          const telefono = ambito === 'panel' ? Store.complejo().telefonoDuenio : '1123456789';
+          const nombre = ambito === 'panel' ? 'Dueño de GOLES' : 'Jugador de prueba';
+          const codigo = Store.enviarCodigo(telefono);
+          this.whatsapp = { telefono, codigo };
+          setTimeout(() => { this.whatsapp = null; }, 5000);
+          if (!Store.verificarCodigo(telefono, codigo)) return this.avisar(false, 'El código no coincidió.');
+          const usuario = Store.login(telefono, nombre, ambito);
+          this.actualizar();
+          this.avisar(true, `Sesión de ${ambito} abierta: ${usuario.nombre} (${usuario.rol}).`);
+        },
+
+        logout(ambito) {
+          Store.logout(ambito);
+          this.actualizar();
+          this.avisar(true, `Sesión de ${ambito} cerrada.`);
+        },
+
+        borrarFijos() {
+          const fijos = Store.turnosFijos();
+          fijos.forEach((fijo) => Store.borrarTurnoFijo(fijo.id));
+          this.avisar(true, fijos.length ? `Borré ${fijos.length} turno(s) fijo(s).` : 'No había turnos fijos.');
+        },
+
+        reiniciar() {
+          Store.reiniciarDemo();
+          this.cambiarDia(Store.hoy());
+          this.avisar(true, 'Demo reiniciada: reservas de ejemplo, sin fijos y sin sesiones.');
+        },
+
+        // ----- Lista de eventos -----
+
+        describir({ tipo, datos }) {
+          if (tipo === 'reserva-nueva' || tipo === 'reserva-actualizada') {
+            const extra = tipo === 'reserva-actualizada'
+              ? ` · asistencia: ${datos.asistencia || '—'} · seña: ${datos.senaPagada ? datos.medioSena : 'sin pagar'}`
+              : '';
+            return `${datos.canchaId.toUpperCase()} · ${Fmt.dia(datos.fecha)} ${Fmt.rango(datos.hora, datos.horas)} · ${datos.nombre}${extra}`;
+          }
+          if (tipo === 'fijo-nuevo' || tipo === 'fijo-borrado') {
+            return `${datos.canchaId.toUpperCase()} · ${Fmt.diaSemana(datos.diaSemana)} ${Fmt.rango(datos.hora, datos.horas)} · ${datos.responsable}`;
+          }
+          return 'Todo volvió a los datos iniciales';
+        },
+      };
+    }
+  </script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+</head>
+<body x-data="prueba()" class="min-h-screen bg-marca-oscuro font-texto text-marca-claro antialiased">
+
+  <!-- Notificación que imita a WhatsApp -->
+  <div x-cloak x-show="whatsapp" x-transition.opacity
+       class="fixed inset-x-4 top-4 z-50 mx-auto max-w-sm rounded-2xl bg-marca-claro p-4 text-marca-oscuro shadow-2xl">
+    <p class="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-libre">
+      <i data-lucide="message-circle" class="h-4 w-4"></i> WhatsApp · ahora
+    </p>
+    <p class="mt-1 font-semibold">Reservando</p>
+    <p class="text-sm">Tu código es <span class="font-titulo text-xl font-extrabold tracking-widest" x-text="whatsapp && whatsapp.codigo"></span></p>
+  </div>
+
+  <main class="mx-auto max-w-md space-y-6 px-4 py-6">
+
+    <header>
+      <p class="text-xs font-semibold uppercase tracking-wider text-marca">Paso 0</p>
+      <h1 class="font-titulo text-4xl font-extrabold uppercase tracking-tight">Prueba de la base</h1>
+      <p x-cloak class="text-sm text-marca-claro/60">
+        Componentes: <span x-text="componentes"></span> · Hoy es <span x-text="Fmt.diaLargo(Store.hoy())"></span>
+      </p>
+    </header>
+
+    <!-- Componentes cargados con include.js -->
+    <section class="space-y-3">
+      <h2 class="font-titulo text-2xl font-bold uppercase">Componentes</h2>
+      <div data-include="componentes/ejemplo.html" data-ambito="jugador"></div>
+      <div data-include="componentes/plano.html"></div>
+    </section>
+
+    <!-- Acciones -->
+    <section class="space-y-3">
+      <h2 class="font-titulo text-2xl font-bold uppercase">Acciones</h2>
+      <div class="grid grid-cols-2 gap-2">
+        <button type="button" @click="reservarPrimeroLibre()"
+                class="col-span-2 flex min-h-[44px] items-center justify-center gap-2 rounded-xl bg-marca px-4 font-semibold text-marca-oscuro transition hover:brightness-110">
+          <i data-lucide="calendar-plus" class="h-5 w-5"></i> Reservar el primer libre de F5
+        </button>
+        <button type="button" @click="crearFijoDePrueba()"
+                class="flex min-h-[44px] items-center justify-center gap-2 rounded-xl bg-fijo/15 px-3 text-sm font-semibold text-fijo ring-1 ring-fijo/40 transition hover:bg-fijo/25">
+          <i data-lucide="repeat" class="h-4 w-4"></i> Crear fijo
+        </button>
+        <button type="button" @click="borrarFijos()"
+                class="flex min-h-[44px] items-center justify-center gap-2 rounded-xl bg-marca-claro/10 px-3 text-sm font-semibold transition hover:bg-marca-claro/15">
+          <i data-lucide="trash-2" class="h-4 w-4"></i> Borrar fijos
+        </button>
+        <button type="button" @click="login('jugador')"
+                class="flex min-h-[44px] items-center justify-center gap-2 rounded-xl bg-marca-claro/10 px-3 text-sm font-semibold transition hover:bg-marca-claro/15">
+          <i data-lucide="smartphone" class="h-4 w-4"></i> Login jugador
+        </button>
+        <button type="button" @click="login('panel')"
+                class="flex min-h-[44px] items-center justify-center gap-2 rounded-xl bg-marca-claro/10 px-3 text-sm font-semibold transition hover:bg-marca-claro/15">
+          <i data-lucide="key-round" class="h-4 w-4"></i> Login dueño
+        </button>
+        <button type="button" @click="reiniciar()"
+                class="col-span-2 flex min-h-[44px] items-center justify-center gap-2 rounded-xl px-4 text-sm font-semibold text-alerta ring-1 ring-alerta/50 transition hover:bg-alerta/10">
+          <i data-lucide="rotate-ccw" class="h-4 w-4"></i> Reiniciar demo
+        </button>
+      </div>
+
+      <p x-cloak x-show="mensaje" x-text="mensaje && mensaje.texto"
+         :class="mensaje && mensaje.ok ? 'text-libre' : 'text-alerta'" class="text-sm font-medium"></p>
+
+      <!-- Sesiones: jugador y panel son independientes -->
+      <div x-cloak class="grid grid-cols-2 gap-2 text-sm">
+        <template x-for="ambito in ['jugador', 'panel']" :key="ambito">
+          <div class="rounded-xl bg-marca-claro/5 p-3 ring-1 ring-marca-claro/10">
+            <p class="text-xs uppercase tracking-wide text-marca-claro/50" x-text="'Sesión ' + ambito"></p>
+            <template x-if="sesiones[ambito]">
+              <div>
+                <p class="font-semibold" x-text="sesiones[ambito].nombre"></p>
+                <p class="text-marca-claro/60" x-text="Fmt.telefono(sesiones[ambito].telefono) + ' · ' + sesiones[ambito].rol"></p>
+                <button type="button" @click="logout(ambito)" class="mt-1 min-h-[44px] text-xs font-semibold text-marca underline">Cerrar sesión</button>
+              </div>
+            </template>
+            <p x-show="!sesiones[ambito]" class="text-marca-claro/60">Sin sesión</p>
+          </div>
+        </template>
+      </div>
+    </section>
+
+    <!-- Turnos del día -->
+    <section x-cloak class="space-y-3">
+      <div class="flex items-end justify-between gap-2">
+        <h2 class="font-titulo text-2xl font-bold uppercase">Turnos</h2>
+        <div class="flex gap-1 rounded-xl bg-marca-claro/5 p-1">
+          <template x-for="(dia, i) in dias" :key="dia">
+            <button type="button" @click="cambiarDia(dia)"
+                    :class="fecha === dia ? 'bg-marca text-marca-oscuro' : 'text-marca-claro/70'"
+                    class="min-h-[44px] rounded-lg px-3 text-sm font-semibold transition"
+                    x-text="(i === 0 ? 'Hoy ' : 'Mañana ') + Fmt.dia(dia)"></button>
+          </template>
+        </div>
+      </div>
+      <p class="text-xs text-marca-claro/50">Tocá una hora para avisarle al plano (evento <code>cambio-horario</code>). Lo que ya pasó se ve apagado.</p>
+
+      <div class="overflow-hidden rounded-2xl ring-1 ring-marca-claro/10">
+        <div class="grid grid-cols-[4rem_minmax(0,1fr)_minmax(0,1fr)] gap-2 bg-marca-claro/5 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-marca-claro/60">
+          <span>Hora</span>
+          <template x-for="cancha in canchas" :key="cancha.id">
+            <span x-text="cancha.nombre + ' · ' + Fmt.pesos(cancha.precioHora)"></span>
+          </template>
+        </div>
+        <template x-for="fila in filas" :key="fila.hora">
+          <button type="button" @click="elegirHora(fila.hora)"
+                  :class="horaElegida === fila.hora ? 'bg-marca/10' : ''"
+                  class="grid w-full grid-cols-[4rem_minmax(0,1fr)_minmax(0,1fr)] items-center gap-2 border-t border-marca-claro/10 px-3 py-2 text-left transition">
+            <span class="font-titulo text-lg font-bold" x-text="Fmt.hora(fila.hora)"></span>
+            <template x-for="turno in fila.turnos" :key="turno.canchaId">
+              <span :class="{
+                      'bg-libre/15 text-libre ring-1 ring-libre/40': turno.estado === 'libre',
+                      'bg-ocupado/15 text-ocupado ring-1 ring-ocupado/40': turno.estado === 'reservado',
+                      'bg-fijo/15 text-fijo border-2 border-fijo': turno.estado === 'fijo',
+                      'opacity-40': turno.pasado,
+                    }"
+                    class="flex min-h-[44px] min-w-0 flex-col justify-center rounded-lg px-2 text-xs">
+                <span class="font-semibold" x-text="etiqueta(turno)"></span>
+                <span class="truncate text-marca-claro/70" x-show="turno.reservaId" x-text="nombreDe(turno.reservaId)"></span>
+              </span>
+            </template>
+          </button>
+        </template>
+      </div>
+    </section>
+
+    <!-- Eventos de Store.alCambiar -->
+    <section x-cloak class="space-y-3">
+      <div class="flex items-center justify-between">
+        <h2 class="font-titulo text-2xl font-bold uppercase">Eventos</h2>
+        <button type="button" x-show="eventos.length" @click="eventos = []" class="min-h-[44px] text-xs font-semibold text-marca-claro/60 underline">Limpiar</button>
+      </div>
+      <p x-show="!eventos.length" class="text-sm text-marca-claro/50">
+        Todavía no llegó ninguno. Abrí esta página en otra pestaña y reservá ahí: tiene que aparecer acá.
+      </p>
+      <ol class="space-y-2">
+        <template x-for="evento in eventos" :key="evento.id">
+          <li class="rounded-xl bg-marca-claro/5 p-3 text-sm ring-1 ring-marca-claro/10">
+            <p class="flex justify-between gap-2">
+              <span class="font-semibold text-marca" x-text="evento.tipo"></span>
+              <span class="text-xs text-marca-claro/50" x-text="evento.hora"></span>
+            </p>
+            <p class="text-marca-claro/75" x-text="evento.detalle"></p>
+          </li>
+        </template>
+      </ol>
+    </section>
+
+  </main>
+
+</body>
+</html>
