@@ -33,6 +33,27 @@ Google Fonts: `family=Barlow+Condensed:wght@600;700;800&family=Inter:wght@400;50
 - Favicon solo en SVG. Si hace falta en Safari viejo, sumar un PNG de 180 px (`apple-touch-icon`).
 - WhatsApp de contacto de la landing: PROVISORIO (`+54 9 11 0000-0000`).
 
+## Jornada del 28/10/2026
+
+### Qué hicimos
+
+- Página `presentacion.html`: el celular del jugador (`goles/index.html`) y el panel (`goles/panel.html`) lado a lado en iframes. Como comparten el localStorage, una reserva aparece sola en el panel.
+- Ese commit quedó por error directo en `main`. Lo traje a `marca` con un fast-forward (sin conflictos) y subí `marca`. A partir de ahora PC 3 trabaja solo en `marca`.
+- `git fetch`: en `origin/main` no hay nada de las otras PCs. Todavía no existen el Paso 0 ni las ramas `jugador` y `panel`.
+
+### Decisiones nuevas
+
+- **`config.js` no se commitea desde `marca`.** Según CLAUDE.md lo crea el Paso 0. El mío sigue local, sin trackear, con los valores de la tabla de arriba. Ojo: no está en `.git/info/exclude`, así que no hacer `git add .`.
+- Los stubs locales (`store.js`, `datos.js`, `formato.js`, `include.js`, `estilos.css`, `prueba-pc3.html`) siguen excluidos y se descartan cuando llegue el Paso 0.
+
+### Pendientes
+
+- **Definir entre los tres quién hace el Paso 0 y cuándo.** Hasta que esté, la marca no se puede mergear temprano a `main`.
+- **Sumar `presentacion.html` a CLAUDE.md** (estructura de carpetas y tabla de quién toca qué), de común acuerdo. Propuesta: que sea de PC 3.
+- `presentacion.html` se ve vacía hasta que existan `goles/index.html` (PC 1) y `goles/panel.html` (PC 2).
+- `prueba.html` no existe todavía, así que no se pudo probar. Cuando llegue, probar ahí el plano.
+- Siguiente tarea de PC 3 en `marca`: pasar a trazos el texto de los logos SVG (ver "Pendientes para la integración").
+
 ## GitHub Pages (para todas las PCs)
 
 En Pages la demo vive en `https://mendezciroco.github.io/RESERVANDO/`, no en la raíz del dominio. Por eso:
