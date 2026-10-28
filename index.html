@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="es-AR" class="scroll-smooth">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Reservando.com · Que tus jugadores reserven solos</title>
+  <meta name="description" content="Tus jugadores reservan turnos de cancha desde el celular y pagan la seña con Mercado Pago. Vos dejás de confirmar por WhatsApp.">
+  <link rel="icon" type="image/svg+xml" href="assets/img/favicon.svg">
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="assets/js/config.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="assets/css/estilos.css">
+  <script src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js"></script>
+  <script src="assets/js/datos.js"></script>
+  <script src="assets/js/formato.js"></script>
+  <script src="assets/js/store.js"></script>
+  <script src="assets/js/include.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+</head>
+<body class="bg-marca-oscuro font-texto text-marca-claro antialiased">
+
+  <header class="sticky top-0 z-30 border-b border-marca-claro/10 bg-marca-oscuro/95">
+    <div class="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
+      <a href="#" class="flex items-center gap-2" aria-label="Reservando.com, inicio">
+        <img src="assets/img/reservando-icono.svg" alt="" class="h-9 w-9">
+        <span class="font-titulo text-2xl font-extrabold tracking-tight">Reservando<span class="text-marca">.com</span></span>
+      </a>
+      <a href="goles/" class="inline-flex h-11 items-center gap-1 rounded-xl bg-marca-claro/10 px-4 text-sm font-semibold transition hover:bg-marca-claro/15">
+        Demo <i data-lucide="arrow-up-right" class="h-4 w-4"></i>
+      </a>
+    </div>
+  </header>
+
+  <main>
+    <!-- 1. Portada -->
+    <section class="relative overflow-hidden">
+      <!-- Líneas de cancha de fondo -->
+      <div aria-hidden="true" class="pointer-events-none absolute inset-0">
+        <div class="absolute inset-y-0 left-1/2 w-px bg-marca-claro/5"></div>
+        <div class="absolute left-1/2 top-24 h-80 w-80 -translate-x-1/2 rounded-full border border-marca-claro/5"></div>
+        <div class="absolute left-1/2 top-24 h-80 w-80 -translate-x-1/2 rounded-full bg-marca/10 blur-3xl"></div>
+      </div>
+      <div class="relative mx-auto max-w-6xl px-4 pb-14 pt-10 sm:pt-20">
+        <p class="inline-flex items-center gap-2 rounded-full bg-marca/10 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-marca ring-1 ring-marca/30">
+          <span class="h-1.5 w-1.5 rounded-full bg-marca"></span>Para complejos de fútbol
+        </p>
+        <h1 class="mt-5 font-titulo text-[3.25rem] font-extrabold uppercase leading-[0.9] tracking-tight sm:text-7xl lg:text-8xl">
+          Que tus jugadores reserven <span class="text-marca">solos</span>
+        </h1>
+        <p class="mt-5 max-w-xl text-lg text-marca-claro/75">
+          Dejá de confirmar turnos por WhatsApp y de ir hasta la cancha para ver si un horario está libre.
+          Tus jugadores eligen, reservan y pagan la seña desde el celular, a cualquier hora.
+        </p>
+        <a href="#demo" class="mt-6 inline-flex h-12 items-center gap-2 font-semibold text-marca">
+          Mirá cómo se ve <i data-lucide="arrow-down" class="h-5 w-5"></i>
+        </a>
+      </div>
+    </section>
+
+    <!-- 2. Beneficios -->
+    <section class="mx-auto max-w-6xl px-4 py-12" aria-labelledby="beneficios-titulo">
+      <h2 id="beneficios-titulo" class="font-titulo text-4xl font-extrabold uppercase leading-none">Menos mensajes, más partidos</h2>
+      <ul class="mt-6 grid gap-4 sm:grid-cols-3">
+        <li class="rounded-3xl bg-marca-claro/5 p-5 ring-1 ring-marca-claro/10">
+          <span class="grid h-12 w-12 place-items-center rounded-2xl bg-marca text-marca-oscuro"><i data-lucide="smartphone" class="h-6 w-6"></i></span>
+          <h3 class="mt-4 font-titulo text-2xl font-bold uppercase">Reservan solos, 24/7</h3>
+          <p class="mt-1 text-marca-claro/70">Ven los horarios libres y reservan aunque sean las 2 de la mañana. Vos no contestás ni un mensaje.</p>
+        </li>
+        <li class="rounded-3xl bg-marca-claro/5 p-5 ring-1 ring-marca-claro/10">
+          <span class="grid h-12 w-12 place-items-center rounded-2xl bg-marca text-marca-oscuro"><i data-lucide="wallet" class="h-6 w-6"></i></span>
+          <h3 class="mt-4 font-titulo text-2xl font-bold uppercase">Seña asegurada</h3>
+          <p class="mt-1 text-marca-claro/70">Cada turno se confirma con una seña por Mercado Pago. Menos faltazos y nada de perseguir transferencias.</p>
+        </li>
+        <li class="rounded-3xl bg-marca-claro/5 p-5 ring-1 ring-marca-claro/10">
+          <span class="grid h-12 w-12 place-items-center rounded-2xl bg-marca text-marca-oscuro"><i data-lucide="calendar-check" class="h-6 w-6"></i></span>
+          <h3 class="mt-4 font-titulo text-2xl font-bold uppercase">Tu agenda en vivo</h3>
+          <p class="mt-1 text-marca-claro/70">Cada reserva aparece al instante en tu panel. Sabés qué cancha está libre sin moverte de donde estés.</p>
+        </li>
+      </ul>
+    </section>
+
+    <!-- 3 y 4. Celular con la app del jugador y botón a la demo -->
+    <section id="demo" class="mx-auto grid max-w-6xl scroll-mt-20 justify-items-center gap-8 px-4 py-12 lg:grid-cols-2 lg:items-center" aria-labelledby="demo-titulo">
+      <div class="text-center lg:col-start-1 lg:row-start-1 lg:self-end lg:text-left">
+        <h2 id="demo-titulo" class="font-titulo text-4xl font-extrabold uppercase leading-none">Así lo ve tu jugador</h2>
+        <p class="mt-3 max-w-md text-marca-claro/70">Es la app de la demo, funcionando. Tocala: elegí un horario y probá reservar.</p>
+      </div>
+
+      <div class="relative lg:col-start-2 lg:row-span-2 lg:row-start-1">
+        <div aria-hidden="true" class="absolute -inset-8 rounded-full bg-marca/15 blur-3xl"></div>
+        <div class="relative rounded-[3rem] bg-marca-oscuro p-3 shadow-2xl ring-1 ring-marca-claro/20">
+          <div aria-hidden="true" class="absolute left-1/2 top-3 z-10 h-6 w-28 -translate-x-1/2 rounded-b-2xl bg-marca-oscuro"></div>
+          <!-- La app se diseña a 390 px: el iframe va a ese ancho y se achica para entrar en el celular -->
+          <div class="h-[563px] w-[260px] overflow-hidden rounded-[2.25rem] bg-marca-claro/5">
+            <iframe src="goles/index.html" title="App del jugador de GOLES" loading="lazy" class="h-[844px] w-[390px] origin-top-left scale-[0.6667] border-0"></iframe>
+          </div>
+        </div>
+      </div>
+
+      <a href="goles/" class="group inline-flex h-16 w-full max-w-sm items-center justify-center gap-3 rounded-2xl bg-marca px-6 font-titulo text-2xl font-extrabold uppercase tracking-wide text-marca-oscuro shadow-lg shadow-marca/20 transition hover:-translate-y-0.5 active:translate-y-0 lg:col-start-1 lg:row-start-2 lg:self-start lg:justify-self-start">
+        Ver demo de GOLES <i data-lucide="arrow-right" class="h-6 w-6 transition-transform group-hover:translate-x-1"></i>
+      </a>
+    </section>
+
+    <!-- 5. Cómo funciona -->
+    <section id="como-funciona" class="mx-auto max-w-6xl px-4 py-12" aria-labelledby="como-titulo">
+      <h2 id="como-titulo" class="font-titulo text-4xl font-extrabold uppercase leading-none">Cómo funciona</h2>
+      <ol class="mt-6 grid gap-4 sm:grid-cols-3">
+        <li class="rounded-3xl bg-marca-claro/5 p-5 ring-1 ring-marca-claro/10">
+          <span class="font-titulo text-6xl font-extrabold leading-none text-marca">01</span>
+          <h3 class="mt-3 font-titulo text-2xl font-bold uppercase">Elige su turno</h3>
+          <p class="mt-1 text-marca-claro/70">Entra al link de tu complejo, por ejemplo <span class="font-semibold text-marca-claro">goles.reservando.com</span>, y ve los horarios libres de cada cancha.</p>
+        </li>
+        <li class="rounded-3xl bg-marca-claro/5 p-5 ring-1 ring-marca-claro/10">
+          <span class="font-titulo text-6xl font-extrabold leading-none text-marca">02</span>
+          <h3 class="mt-3 font-titulo text-2xl font-bold uppercase">Paga la seña</h3>
+          <p class="mt-1 text-marca-claro/70">Pone su celular, recibe un código y paga la seña con Mercado Pago. Sin cuentas ni contraseñas.</p>
+        </li>
+        <li class="rounded-3xl bg-marca-claro/5 p-5 ring-1 ring-marca-claro/10">
+          <span class="font-titulo text-6xl font-extrabold leading-none text-marca">03</span>
+          <h3 class="mt-3 font-titulo text-2xl font-bold uppercase">Vos lo ves al toque</h3>
+          <p class="mt-1 text-marca-claro/70">El turno aparece solo en tu panel. Ahí marcás quién vino y cargás turnos fijos y reservas manuales.</p>
+        </li>
+      </ol>
+    </section>
+
+    <!-- 6. Próximamente -->
+    <section class="mx-auto max-w-6xl px-4 py-12">
+      <div data-include="componentes/proximamente.html"></div>
+    </section>
+  </main>
+
+  <!-- 7. Pie con contacto -->
+  <footer class="border-t border-marca-claro/10">
+    <div class="mx-auto max-w-6xl px-4 py-12">
+      <h2 class="font-titulo text-4xl font-extrabold uppercase leading-none">¿Lo querés en tu complejo?</h2>
+      <p class="mt-2 text-marca-claro/70">Escribinos y te lo mostramos con tus canchas.</p>
+      <!-- PROVISORIO: número de WhatsApp de Reservando -->
+      <a href="https://wa.me/5491100000000?text=Hola%2C%20quiero%20Reservando%20para%20mi%20complejo" target="_blank" rel="noopener"
+         class="mt-5 inline-flex h-14 items-center gap-2 rounded-2xl bg-marca-claro px-6 font-semibold text-marca-oscuro transition hover:-translate-y-0.5">
+        <i data-lucide="message-circle" class="h-5 w-5"></i> Escribinos por WhatsApp
+      </a>
+      <p class="mt-2 text-sm text-marca-claro/50">+54 9 11 0000-0000</p>
+
+      <div class="mt-12 flex flex-wrap items-center justify-between gap-3 border-t border-marca-claro/10 pt-6 text-sm text-marca-claro/50">
+        <span class="flex items-center gap-2">
+          <img src="assets/img/reservando-icono.svg" alt="" class="h-6 w-6">
+          <span class="font-titulo text-lg font-bold text-marca-claro">Reservando<span class="text-marca">.com</span></span>
+        </span>
+        <span>© 2026 Reservando.com</span>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    // Íconos de la página; include.js vuelve a llamarlo cuando carga los componentes
+    document.addEventListener('DOMContentLoaded', () => lucide.createIcons());
+  </script>
+</body>
+</html>
